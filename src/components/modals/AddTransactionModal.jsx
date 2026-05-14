@@ -19,17 +19,16 @@ const emptyForm = (prefill) => ({
 })
 
 export default function AddTransactionModal({ onClose, prefill, editTx, onDelete }) {
-  const { allCategories, addTransaction, editTransaction, expenseCategories, transactions } = useApp()
+  const { allCategories, addTransaction, editTransaction, transactions } = useApp()
   const isEdit = !!editTx
 
   const [form, setForm] = useState(isEdit ? { ...editTx, date: editTx.date.slice(0, 16) } : emptyForm(prefill))
   const [showSearch, setShowSearch] = useState(false)
   const [errors, setErrors] = useState({})
-  const [liquidezTopup, setLiquidezTopup] = useState(null) // { amount } cuando hay que confirmar
+  const [liquidezTopup, setLiquidezTopup] = useState(null)
 
-  const isExpense = expenseCategories.includes(form.category)
-  const isLiquidez = form.category === 'LIQUIDEZ'
-  const isSimpleForm = isExpense || isLiquidez
+  // Cualquier categoría que no sea BUY ni SELL usa el formulario simple (LIQUIDEZ + custom)
+  const isSimpleForm = form.category !== 'BUY' && form.category !== 'SELL'
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
@@ -48,11 +47,11 @@ export default function AddTransactionModal({ onClose, prefill, editTx, onDelete
     return !Object.keys(e).length
   }
 
-  const buildTx = (extraId) => {
+  const buildTx = (id) => {
     const cat = form.category
     if (isSimpleForm) {
       return {
-        id: extraId || genId(),
+        id: id || genId(),
         cgId: null, cryptoId: null,
         symbol: cat, name: cat, category: cat,
         date: new Date(form.date).toISOString(),
@@ -62,7 +61,7 @@ export default function AddTransactionModal({ onClose, prefill, editTx, onDelete
       }
     }
     return {
-      id: extraId || genId(),
+      id: id || genId(),
       cgId: form.cgId || null,
       cryptoId: form.cryptoId || null,
       symbol: form.symbol, name: form.name, category: cat,
@@ -77,9 +76,8 @@ export default function AddTransactionModal({ onClose, prefill, editTx, onDelete
   const doSubmit = (skipLiquidezCheck = false) => {
     const tx = buildTx(isEdit ? editTx.id : null)
 
-    // Verificar liquidez insuficiente en compras nuevas
     if (!isEdit && form.category === 'BUY' && !skipLiquidezCheck) {
-      const { liquidez, hasLiquidez } = computeLiquidez(transactions, expenseCategories)
+      const { liquidez, hasLiquidez } = computeLiquidez(transactions)
       const buyTotal = tx.totalUSD
       if (!hasLiquidez) {
         setLiquidezTopup({ amount: +buyTotal.toFixed(2), firstTime: true })
@@ -105,23 +103,21 @@ export default function AddTransactionModal({ onClose, prefill, editTx, onDelete
   }
 
   const confirmWithTopup = () => {
-    const topup = {
-      id: genId(),
+    addTransaction({
       cgId: null, cryptoId: null,
       symbol: 'LIQUIDEZ', name: 'LIQUIDEZ', category: 'LIQUIDEZ',
       date: new Date(form.date).toISOString(),
       amount: 0, priceUSD: 1,
       totalUSD: liquidezTopup.amount,
       notes: 'Auto: ajuste por compra',
-    }
-    addTransaction(topup)
+    })
     setLiquidezTopup(null)
     doSubmit(true)
   }
 
   const handleCategoryChange = (cat) => {
     set('category', cat)
-    if (expenseCategories.includes(cat) || cat === 'LIQUIDEZ') {
+    if (cat !== 'BUY' && cat !== 'SELL') {
       set('symbol', cat); set('cgId', null); set('amount', ''); set('priceUSD', '')
     }
   }
@@ -146,7 +142,6 @@ export default function AddTransactionModal({ onClose, prefill, editTx, onDelete
           <button className="btn-icon" onClick={onClose}>✕</button>
         </div>
 
-        {/* Confirmación de topup de liquidez */}
         {liquidezTopup && (
           <div style={{
             background: 'var(--warning, #b45309)', color: '#fff',
@@ -181,7 +176,7 @@ export default function AddTransactionModal({ onClose, prefill, editTx, onDelete
 
         {isSimpleForm ? (
           <div className="form-group">
-            <label>{isLiquidez ? 'Importe (USD) — negativo si es retirada' : 'Importe (USD) — negativo si es recuperación'}</label>
+            <label>Importe (USD) — negativo si es retirada</label>
             <input type="number" inputMode="decimal" step="any" placeholder="0.00"
               value={form.totalUSD || ''} onChange={e => set('totalUSD', e.target.value)} autoFocus />
             {errors.totalUSD && <span style={{ color: 'var(--danger)', fontSize: '.78rem' }}>{errors.totalUSD}</span>}
