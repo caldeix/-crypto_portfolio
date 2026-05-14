@@ -27,66 +27,60 @@ export const buildPortfolio = (transactions, prices) => {
   }).filter(e => e.invested > 0 || e.amountHeld > 0)
 }
 
-// Calcula el saldo de liquidez disponible y si el sistema está activo.
-// Solo cuenta BUY/SELL/gastos a partir de la primera transacción de LIQUIDEZ.
-export const computeLiquidez = (transactions, expenseCategories = []) => {
+// Todas las transacciones que no son BUY ni SELL afectan al saldo de liquidez (LIQUIDEZ + categorías custom)
+export const computeLiquidez = (transactions) => {
   const firstDate = transactions
     .filter(t => t.category === 'LIQUIDEZ')
     .reduce((min, t) => (!min || t.date < min ? t.date : min), null)
   if (!firstDate) return { liquidez: 0, hasLiquidez: false }
 
-  let deposits = 0, buys = 0, sells = 0, gastos = 0
+  let balance = 0
   for (const t of transactions) {
-    if (t.category === 'LIQUIDEZ') { deposits += t.totalUSD; continue }
-    if (t.date < firstDate) continue
-    if (t.category === 'BUY') buys += t.totalUSD
-    else if (t.category === 'SELL') sells += t.totalUSD
-    else if (expenseCategories.includes(t.category)) gastos += t.totalUSD
+    if (t.category === 'BUY') {
+      if (t.date >= firstDate) balance -= t.totalUSD
+    } else if (t.category === 'SELL') {
+      if (t.date >= firstDate) balance += t.totalUSD
+    } else {
+      // LIQUIDEZ y categorías custom: el importe ya viene firmado (+deposito / -retirada)
+      balance += t.totalUSD
+    }
   }
-  return { liquidez: deposits - buys + sells - gastos, hasLiquidez: true }
+  return { liquidez: balance, hasLiquidez: true }
 }
 
-export const buildTotals = (portfolio, allTransactions = [], expenseCategories = []) => {
+export const buildTotals = (portfolio, allTransactions = []) => {
   const totalInvested = portfolio.reduce((s, e) => s + e.invested, 0)
   const totalCurrentValue = portfolio.reduce((s, e) => s + e.currentValue, 0)
   const totalSold = portfolio.reduce((s, e) => s + e.soldValue, 0)
   const totalNetInvested = totalInvested - totalSold
 
-  const gastosByCategory = {}
-  let totalGastos = 0
-  let totalLiquidezDeposits = 0
-  let preLiquidezBuys = 0
-  let preLiquidezSells = 0
-
   const firstLiquidezDate = allTransactions
     .filter(t => t.category === 'LIQUIDEZ')
     .reduce((min, t) => (!min || t.date < min ? t.date : min), null)
 
+  let totalLiquidezDeposits = 0
+  let preLiquidezBuys = 0
+  let preLiquidezSells = 0
+
   for (const t of allTransactions) {
-    if (expenseCategories.includes(t.category)) {
-      gastosByCategory[t.category] = (gastosByCategory[t.category] || 0) + t.totalUSD
-      totalGastos += t.totalUSD
+    if (t.category !== 'BUY' && t.category !== 'SELL' && t.totalUSD > 0) {
+      totalLiquidezDeposits += t.totalUSD
     }
-    if (t.category === 'LIQUIDEZ') { totalLiquidezDeposits += t.totalUSD; continue }
     if (firstLiquidezDate && t.date < firstLiquidezDate) {
       if (t.category === 'BUY') preLiquidezBuys += t.totalUSD
       if (t.category === 'SELL') preLiquidezSells += t.totalUSD
     }
   }
 
-  const { liquidez: totalLiquidez } = computeLiquidez(allTransactions, expenseCategories)
-
+  const { liquidez: totalLiquidez } = computeLiquidez(allTransactions)
   const totalPnL = totalCurrentValue + totalSold - totalInvested
 
-  // Base = lo que entró al sistema antes del LIQUIDEZ (neto) + los depósitos de LIQUIDEZ
-  // Si no hay LIQUIDEZ trackado, usa totalInvested como fallback
-  const preBase = preLiquidezBuys - preLiquidezSells
   const base = firstLiquidezDate
-    ? totalLiquidezDeposits + Math.max(preBase, 0)
+    ? totalLiquidezDeposits + Math.max(preLiquidezBuys - preLiquidezSells, 0)
     : totalInvested
   const totalPct = base > 0 ? totalPnL / base : 0
 
-  return { totalInvested, totalNetInvested, totalCurrentValue, totalSold, totalGastos, gastosByCategory, totalPnL, totalPct, totalLiquidez, totalLiquidezDeposits }
+  return { totalInvested, totalNetInvested, totalCurrentValue, totalSold, totalPnL, totalPct, totalLiquidez, totalLiquidezDeposits }
 }
 
 export const fmt = (n, decimals = 2) =>
