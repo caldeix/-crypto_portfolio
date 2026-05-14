@@ -5,14 +5,16 @@ export const buildPortfolio = (transactions, prices) => {
     const { cryptoId, cgId, symbol, name, category, amount, totalUSD } = tx
     const key = cgId || symbol
     if (!map[key]) {
-      map[key] = { cryptoId, cgId, symbol, name, amountHeld: 0, invested: 0, soldValue: 0 }
+      map[key] = { cryptoId, cgId, symbol, name, amountHeld: 0, amountBought: 0, amountSold: 0, invested: 0, soldValue: 0 }
     }
     const e = map[key]
     if (category === 'BUY') {
       e.amountHeld += amount
+      e.amountBought += amount
       e.invested += totalUSD
     } else if (category === 'SELL') {
       e.amountHeld -= amount
+      e.amountSold += amount
       e.soldValue += totalUSD
     }
   }
@@ -21,9 +23,14 @@ export const buildPortfolio = (transactions, prices) => {
     const priceData = (e.cgId && prices[e.cgId]) || {}
     const currentPrice = priceData.price || 0
     const currentValue = Math.max(e.amountHeld, 0) * currentPrice
+    const avgBuy = e.amountBought > 0 ? e.invested / e.amountBought : 0
+    const avgSell = e.amountSold > 0 ? e.soldValue / e.amountSold : 0
+    // Total return: (valor actual + lo ya vendido) / total invertido - 1
     const profitability = e.invested > 0 ? ((currentValue + e.soldValue) / e.invested) - 1 : 0
     const profitabilityUSD = currentValue + e.soldValue - e.invested
-    return { ...e, currentPrice, currentValue, profitability, profitabilityUSD, change24h: priceData.percent_change_24h || 0 }
+    // Unrealized: precio actual vs precio medio de compra
+    const unrealizedPct = avgBuy > 0 && currentPrice > 0 ? (currentPrice - avgBuy) / avgBuy : null
+    return { ...e, currentPrice, currentValue, avgBuy, avgSell, profitability, profitabilityUSD, unrealizedPct, change24h: priceData.percent_change_24h || 0 }
   }).filter(e => e.invested > 0 || e.amountHeld > 0)
 }
 
