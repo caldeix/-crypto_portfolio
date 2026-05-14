@@ -4,7 +4,6 @@ import { fetchPricesByCgId } from '../services/coinGeckoApi'
 import { genId } from '../utils/calculations'
 
 const Ctx = createContext(null)
-const REFRESH_MS = 5 * 60 * 1000
 
 const initialState = {
   cgApiKeyEncoded: load('cgApiKey', ''),
@@ -41,6 +40,7 @@ export function AppProvider({ children }) {
   const timerRef = useRef(null)
 
   const cgApiKey = decodeKey(state.cgApiKeyEncoded)
+  const REFRESH_MS = cgApiKey ? 2 * 60 * 1000 : 5 * 60 * 1000
 
   // Migración única: eliminar transacciones y categorías custom antiguas (gastos)
   useEffect(() => {

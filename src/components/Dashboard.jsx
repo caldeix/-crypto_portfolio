@@ -5,13 +5,10 @@ import CryptoCard from './CryptoCard'
 import AddTransactionModal from './modals/AddTransactionModal'
 import SearchCryptoModal from './modals/SearchCryptoModal'
 
-const SORT_OPTIONS = [
-  { value: 'value-desc',  label: 'Valor ↓' },
-  { value: 'value-asc',   label: 'Valor ↑' },
-  { value: 'pct-desc',    label: 'Rent. ↓' },
-  { value: 'pct-asc',     label: 'Rent. ↑' },
-  { value: 'pnl-desc',    label: 'P&L ↓' },
-  { value: 'pnl-asc',     label: 'P&L ↑' },
+const SORT_KEYS = [
+  { key: 'value', label: 'Valor' },
+  { key: 'pct',   label: 'Rent.' },
+  { key: 'pnl',   label: 'P&L'   },
 ]
 
 const sortFn = (key) => {
@@ -100,16 +97,22 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Sort bar */}
-      <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', padding: '0 0 4px', scrollbarWidth: 'none', marginBottom: '4px' }}>
-        {SORT_OPTIONS.map(opt => (
-          <button
-            key={opt.value}
-            className={`tab ${sortBy === opt.value ? 'active' : ''}`}
-            style={{ flexShrink: 0, fontSize: '.74rem', padding: '4px 10px' }}
-            onClick={() => setSortBy(opt.value)}
-          >{opt.label}</button>
-        ))}
+      {/* Sort bar — toggle */}
+      <div style={{ display: 'flex', gap: '6px', padding: '0 0 4px', marginBottom: '4px' }}>
+        {SORT_KEYS.map(({ key, label }) => {
+          const [activeKey, activeDir] = sortBy.split('-')
+          const isActive = activeKey === key
+          const dir = isActive ? activeDir : 'desc'
+          const arrow = isActive ? (dir === 'desc' ? ' ↓' : ' ↑') : ''
+          return (
+            <button
+              key={key}
+              className={`tab ${isActive ? 'active' : ''}`}
+              style={{ flexShrink: 0, fontSize: '.74rem', padding: '4px 12px' }}
+              onClick={() => setSortBy(isActive ? `${key}-${dir === 'desc' ? 'asc' : 'desc'}` : `${key}-desc`)}
+            >{label}{arrow}</button>
+          )
+        })}
       </div>
 
       {/* Active grid */}
