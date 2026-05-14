@@ -3,7 +3,7 @@ import { useApp } from '../../context/AppContext'
 import ImportExportModal from './ImportExportModal'
 
 export default function ConfigModal({ onClose }) {
-  const { cgApiKey, setCgApiKey, customCategories, allCategories, addCategory, renameCategory, deleteCategory } = useApp()
+  const { cgApiKey, setCgApiKey, customCategories, allCategories, addCategory, renameCategory, deleteCategory, expenseCategories, toggleExpenseCategory } = useApp()
 
   const [keyInput, setKeyInput] = useState(cgApiKey)
   const [showKey, setShowKey] = useState(false)
@@ -58,7 +58,7 @@ export default function ConfigModal({ onClose }) {
         <div className="settings-section">
           <div className="settings-section-title">Categorías de transacciones</div>
           <div className="category-list">
-            {['BUY', 'SELL'].map(cat => (
+            {['BUY', 'SELL', 'LIQUIDEZ'].map(cat => (
               <div key={cat} className="category-item">
                 <span className="category-item-name">{cat}</span>
                 <span className="category-item-locked">🔒 Nativa</span>
@@ -81,6 +81,12 @@ export default function ConfigModal({ onClose }) {
                 ) : (
                   <>
                     <span className="category-item-name">{cat}</span>
+                    <button
+                      className="btn-icon"
+                      style={{ fontSize: '.8rem', opacity: expenseCategories.includes(cat) ? 1 : 0.35 }}
+                      title={expenseCategories.includes(cat) ? 'Quitar gasto' : 'Marcar como gasto'}
+                      onClick={() => toggleExpenseCategory(cat)}
+                    >💸</button>
                     <button className="btn-icon" style={{ fontSize: '.8rem' }} onClick={() => { setEditCat(cat); setEditCatVal(cat) }}>✏️</button>
                     <button className="btn-icon" style={{ fontSize: '.8rem' }} onClick={() => deleteCategory(cat)}>🗑️</button>
                   </>
