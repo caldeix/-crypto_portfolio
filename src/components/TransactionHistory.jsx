@@ -5,15 +5,13 @@ import AddTransactionModal from './modals/AddTransactionModal'
 
 const PAGE = 30
 
-const iconClass = (cat, isExpense) => {
-  if (isExpense) return 'tx-icon sell'
+const iconClass = (cat) => {
   if (cat === 'BUY') return 'tx-icon buy'
   if (cat === 'SELL') return 'tx-icon sell'
   return 'tx-icon custom'
 }
 
-const iconLabel = (cat, isExpense) => {
-  if (isExpense) return '💸'
+const iconLabel = (cat) => {
   if (cat === 'BUY') return '↑'
   if (cat === 'SELL') return '↓'
   if (cat === 'LIQUIDEZ') return '💵'
@@ -26,7 +24,7 @@ const fmtDate = (iso) => {
 }
 
 export default function TransactionHistory() {
-  const { transactions, allCategories, deleteTransaction, hideValues, expenseCategories } = useApp()
+  const { transactions, allCategories, deleteTransaction, hideValues } = useApp()
   const [filterCat, setFilterCat] = useState('ALL')
   const [filterSymbol, setFilterSymbol] = useState('ALL')
   const [showSymbols, setShowSymbols] = useState(false)
@@ -130,7 +128,7 @@ export default function TransactionHistory() {
           <div className="tx-list">
             {visible.map(tx => (
               <div key={tx.id} className="tx-item" onClick={() => setEditTx(tx)}>
-                <div className={iconClass(tx.category, expenseCategories.includes(tx.category))}>{iconLabel(tx.category, expenseCategories.includes(tx.category))}</div>
+                <div className={iconClass(tx.category)}>{iconLabel(tx.category)}</div>
                 <div className="tx-info">
                   <div className="tx-main">
                     <span className="tx-symbol">{tx.symbol}</span>

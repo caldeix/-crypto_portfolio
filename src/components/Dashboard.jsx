@@ -27,7 +27,7 @@ const sortFn = (key) => {
 }
 
 export default function Dashboard() {
-  const { transactions, prices, reassignCgId, archivedSymbols, archiveSymbol, unarchiveSymbol, hideValues, toggleHideValues, expenseCategories } = useApp()
+  const { transactions, prices, reassignCgId, archivedSymbols, archiveSymbol, unarchiveSymbol, hideValues, toggleHideValues } = useApp()
   const [showAddForCrypto, setShowAddForCrypto] = useState(null)
   const [reassignTarget, setReassignTarget] = useState(null)
   const [showArchived, setShowArchived] = useState(false)
@@ -42,11 +42,10 @@ export default function Dashboard() {
   // mv global (para total y cartera), mvChip respeta también el toggle individual
   const mvChip = (v, key) => (hideValues || hiddenChips.has(key)) ? '••••' : v
 
-  const cryptoTxs = useMemo(() => transactions.filter(t => !expenseCategories.includes(t.category)), [transactions, expenseCategories])
-  const portfolio = useMemo(() => buildPortfolio(cryptoTxs, prices), [cryptoTxs, prices])
+  const portfolio = useMemo(() => buildPortfolio(transactions, prices), [transactions, prices])
   const active    = useMemo(() => portfolio.filter(e => !archivedSymbols.includes(e.symbol)), [portfolio, archivedSymbols])
   const archived  = useMemo(() => portfolio.filter(e =>  archivedSymbols.includes(e.symbol)), [portfolio, archivedSymbols])
-  const totals    = useMemo(() => buildTotals(active, transactions, expenseCategories), [active, transactions, expenseCategories])
+  const totals    = useMemo(() => buildTotals(active, transactions), [active, transactions])
 
   if (active.length === 0 && archived.length === 0) {
     return (
@@ -87,28 +86,16 @@ export default function Dashboard() {
             Invertido {mv(fmt(totals.totalNetInvested))}
           </div>
         </div>
-        {(totals.totalGastos > 0 || totals.totalLiquidez !== 0) && (
+        {totals.totalLiquidez !== 0 && (
           <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
-            {totals.totalGastos > 0 && (
-              <div
-                className="pnl-chip neg"
-                style={{ fontSize: '.74rem', cursor: 'pointer', userSelect: 'none', opacity: hiddenChips.has('RETIRADO') && !hideValues ? 0.6 : 1 }}
-                title={`Pulsa para ${hiddenChips.has('RETIRADO') ? 'mostrar' : 'ocultar'} — Total retirado`}
-                onClick={() => toggleChip('RETIRADO')}
-              >
-                💸 Retirado {mvChip(fmt(totals.totalGastos), 'RETIRADO')}
-              </div>
-            )}
-            {totals.totalLiquidez !== 0 && (
-              <div
-                className={totals.totalLiquidez >= 0 ? 'pnl-chip pos' : 'pnl-chip neg'}
-                style={{ fontSize: '.74rem', cursor: 'pointer', userSelect: 'none', opacity: hiddenChips.has('LIQUIDEZ') && !hideValues ? 0.6 : 1 }}
-                title={`Pulsa para ${hiddenChips.has('LIQUIDEZ') ? 'mostrar' : 'ocultar'} — Saldo de caja disponible`}
-                onClick={() => toggleChip('LIQUIDEZ')}
-              >
-                💵 Liquidez {mvChip(fmt(totals.totalLiquidez), 'LIQUIDEZ')}
-              </div>
-            )}
+            <div
+              className={totals.totalLiquidez >= 0 ? 'pnl-chip pos' : 'pnl-chip neg'}
+              style={{ fontSize: '.74rem', cursor: 'pointer', userSelect: 'none', opacity: hiddenChips.has('LIQUIDEZ') && !hideValues ? 0.6 : 1 }}
+              title={`Pulsa para ${hiddenChips.has('LIQUIDEZ') ? 'mostrar' : 'ocultar'} — Saldo de caja disponible`}
+              onClick={() => toggleChip('LIQUIDEZ')}
+            >
+              💵 Liquidez {mvChip(fmt(totals.totalLiquidez), 'LIQUIDEZ')}
+            </div>
           </div>
         )}
       </div>
