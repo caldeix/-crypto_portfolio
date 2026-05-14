@@ -8,11 +8,21 @@ export default function CryptoCard({ entry, onClick, onReassign, onArchive, arch
     symbol, name, amountHeld,
     currentPrice, currentValue,
     profitability, profitabilityUSD,
+    avgBuy, avgSell, unrealizedPct,
     invested, soldValue, change24h,
   } = entry
 
   const pnlClass = profitabilityUSD >= 0 ? 'pos' : 'neg'
   const c24Class = change24h >= 0 ? 'pos' : 'neg'
+  const fmtP = (p) => {
+    const a = Math.abs(p)
+    if (a === 0) return 2
+    if (a < 0.000001) return 10
+    if (a < 0.0001) return 8
+    if (a < 0.01) return 6
+    if (a < 1) return 4
+    return 2
+  }
 
   return (
     <div className="crypto-card" onClick={onClick}>
@@ -46,29 +56,46 @@ export default function CryptoCard({ entry, onClick, onReassign, onArchive, arch
         </div>
       </div>
       <div className="crypto-card-stats">
+        {/* Row 1 */}
         <div className="stat">
           <span className="stat-label">Cantidad</span>
           <span className="stat-value">{fmtAmount(amountHeld)}</span>
         </div>
         <div className="stat">
-          <span className="stat-label">Precio</span>
-          <span className="stat-value">{mv(fmt(currentPrice, currentPrice < 1 ? 4 : 2))}</span>
+          <span className="stat-label">Avg Compra</span>
+          <span className="stat-value">{mv(avgBuy > 0 ? fmt(avgBuy, fmtP(avgBuy)) : '—')}</span>
         </div>
         <div className="stat">
-          <span className="stat-label">Rent.</span>
-          <span className={`stat-value ${pnlClass}`}>{mv(fmtPct(profitability))}</span>
+          <span className="stat-label">Precio act.</span>
+          <span className="stat-value">{mv(currentPrice > 0 ? fmt(currentPrice, fmtP(currentPrice)) : '—')}</span>
         </div>
+        {/* Row 2 */}
         <div className="stat">
           <span className="stat-label">Invertido</span>
           <span className="stat-value">{mv(fmt(invested))}</span>
         </div>
         <div className="stat">
-          <span className="stat-label">Vendido</span>
-          <span className="stat-value">{mv(fmt(soldValue))}</span>
+          <span className="stat-label">Avg Venta</span>
+          <span className="stat-value">{mv(avgSell > 0 ? fmt(avgSell, fmtP(avgSell)) : '—')}</span>
         </div>
+        <div className="stat">
+          <span className="stat-label">Vendido</span>
+          <span className="stat-value">{mv(soldValue > 0 ? fmt(soldValue) : '—')}</span>
+        </div>
+        {/* Row 3 */}
         <div className="stat">
           <span className="stat-label">P&L</span>
           <span className={`stat-value ${pnlClass}`}>{mv(fmt(profitabilityUSD))}</span>
+        </div>
+        <div className="stat">
+          <span className="stat-label">Rent. total</span>
+          <span className={`stat-value ${pnlClass}`}>{mv(fmtPct(profitability))}</span>
+        </div>
+        <div className="stat">
+          <span className="stat-label">vs Avg</span>
+          <span className={`stat-value ${unrealizedPct === null ? '' : unrealizedPct >= 0 ? 'pos' : 'neg'}`}>
+            {unrealizedPct === null ? '—' : mv(fmtPct(unrealizedPct))}
+          </span>
         </div>
       </div>
     </div>
