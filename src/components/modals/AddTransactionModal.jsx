@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useApp } from '../../context/AppContext'
-import { genId } from '../../utils/calculations'
+import { genId, computeLiquidez } from '../../utils/calculations'
 import SearchCryptoModal from './SearchCryptoModal'
 
 const today = () => new Date().toISOString().slice(0, 16)
@@ -14,16 +14,18 @@ const emptyForm = (prefill) => ({
   date: today(),
   amount: '',
   priceUSD: '',
+  totalUSD: '',
   notes: '',
 })
 
 export default function AddTransactionModal({ onClose, prefill, editTx, onDelete }) {
-  const { allCategories, addTransaction, editTransaction, expenseCategories } = useApp()
+  const { allCategories, addTransaction, editTransaction, expenseCategories, transactions } = useApp()
   const isEdit = !!editTx
 
   const [form, setForm] = useState(isEdit ? { ...editTx, date: editTx.date.slice(0, 16) } : emptyForm(prefill))
   const [showSearch, setShowSearch] = useState(false)
   const [errors, setErrors] = useState({})
+  const [liquidezTopup, setLiquidezTopup] = useState(null) // { amount } cuando hay que confirmar
 
   const isExpense = expenseCategories.includes(form.category)
   const isLiquidez = form.category === 'LIQUIDEZ'
@@ -46,32 +48,75 @@ export default function AddTransactionModal({ onClose, prefill, editTx, onDelete
     return !Object.keys(e).length
   }
 
+  const buildTx = (extraId) => {
+    const cat = form.category
+    if (isSimpleForm) {
+      return {
+        id: extraId || genId(),
+        cgId: null, cryptoId: null,
+        symbol: cat, name: cat, category: cat,
+        date: new Date(form.date).toISOString(),
+        amount: 0, priceUSD: 1,
+        totalUSD: parseFloat(form.totalUSD),
+        notes: form.notes.trim(),
+      }
+    }
+    return {
+      id: extraId || genId(),
+      cgId: form.cgId || null,
+      cryptoId: form.cryptoId || null,
+      symbol: form.symbol, name: form.name, category: cat,
+      date: new Date(form.date).toISOString(),
+      amount: parseFloat(form.amount),
+      priceUSD: parseFloat(form.priceUSD),
+      totalUSD: parseFloat(form.amount) * parseFloat(form.priceUSD),
+      notes: form.notes.trim(),
+    }
+  }
+
+  const doSubmit = (skipLiquidezCheck = false) => {
+    const tx = buildTx(isEdit ? editTx.id : null)
+
+    // Verificar liquidez insuficiente en compras nuevas
+    if (!isEdit && form.category === 'BUY' && !skipLiquidezCheck) {
+      const { liquidez, hasLiquidez } = computeLiquidez(transactions, expenseCategories)
+      const buyTotal = tx.totalUSD
+      if (!hasLiquidez) {
+        setLiquidezTopup({ amount: +buyTotal.toFixed(2), firstTime: true })
+        return
+      }
+      if (buyTotal > liquidez) {
+        setLiquidezTopup({ amount: +(buyTotal - liquidez).toFixed(2), firstTime: false })
+        return
+      }
+    }
+
+    if (isEdit) {
+      editTransaction(tx)
+    } else {
+      addTransaction(tx)
+    }
+    onClose()
+  }
+
   const handleSubmit = () => {
     if (!validate()) return
-    const cat = form.category
-    const tx = isSimpleForm
-      ? {
-          ...(isEdit ? { id: editTx.id } : { id: genId() }),
-          cgId: null, cryptoId: null,
-          symbol: cat, name: cat, category: cat,
-          date: new Date(form.date).toISOString(),
-          amount: 0, priceUSD: 1,
-          totalUSD: parseFloat(form.totalUSD),
-          notes: form.notes.trim(),
-        }
-      : {
-          ...(isEdit ? { id: editTx.id } : { id: genId() }),
-          cgId: form.cgId || null,
-          cryptoId: form.cryptoId || null,
-          symbol: form.symbol, name: form.name, category: cat,
-          date: new Date(form.date).toISOString(),
-          amount: parseFloat(form.amount),
-          priceUSD: parseFloat(form.priceUSD),
-          totalUSD: parseFloat(form.amount) * parseFloat(form.priceUSD),
-          notes: form.notes.trim(),
-        }
-    isEdit ? editTransaction(tx) : addTransaction(tx)
-    onClose()
+    doSubmit()
+  }
+
+  const confirmWithTopup = () => {
+    const topup = {
+      id: genId(),
+      cgId: null, cryptoId: null,
+      symbol: 'LIQUIDEZ', name: 'LIQUIDEZ', category: 'LIQUIDEZ',
+      date: new Date(form.date).toISOString(),
+      amount: 0, priceUSD: 1,
+      totalUSD: liquidezTopup.amount,
+      notes: 'Auto: ajuste por compra',
+    }
+    addTransaction(topup)
+    setLiquidezTopup(null)
+    doSubmit(true)
   }
 
   const handleCategoryChange = (cat) => {
@@ -100,6 +145,32 @@ export default function AddTransactionModal({ onClose, prefill, editTx, onDelete
           <span className="modal-title">{isEdit ? 'Editar' : 'Nueva'} Transacción</span>
           <button className="btn-icon" onClick={onClose}>✕</button>
         </div>
+
+        {/* Confirmación de topup de liquidez */}
+        {liquidezTopup && (
+          <div style={{
+            background: 'var(--warning, #b45309)', color: '#fff',
+            borderRadius: '8px', padding: '12px', marginBottom: '12px', fontSize: '.85rem'
+          }}>
+            {liquidezTopup.firstTime ? (
+              <>
+                <div style={{ fontWeight: 600, marginBottom: '6px' }}>💵 ¿Activar tracking de liquidez?</div>
+                <div>No tienes ningún depósito de LIQUIDEZ registrado. ¿Quieres crear automáticamente una entrada de <strong>+{liquidezTopup.amount.toFixed(2)} USD</strong> para empezar a trackear tu saldo?</div>
+              </>
+            ) : (
+              <>
+                <div style={{ fontWeight: 600, marginBottom: '6px' }}>⚠️ Liquidez insuficiente</div>
+                <div>Se añadirá automáticamente una entrada de LIQUIDEZ de <strong>+{liquidezTopup.amount.toFixed(2)} USD</strong> para cubrir el faltante.</div>
+              </>
+            )}
+            <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+              <button className="btn btn-primary btn-sm" onClick={confirmWithTopup}>Confirmar</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => setLiquidezTopup(null)}>
+                {liquidezTopup.firstTime ? 'No, sin tracking' : 'Cancelar'}
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="form-group">
           <label>Categoría</label>
