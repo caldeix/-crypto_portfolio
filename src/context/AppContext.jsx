@@ -10,23 +10,29 @@ const initialState = {
   cgApiKeyEncoded: load('cgApiKey', ''),
   customCategories: load('categories', []),
   transactions: load('transactions', []),
-  prices: {},        // keyed by cgId string
+  archivedSymbols: load('archived', []),
+  expenseCategories: load('expenseCategories', []),
+  prices: {},
   lastUpdated: null,
   isLoading: false,
   priceError: null,
+  hideValues: false,
 }
 
 function reducer(state, action) {
   switch (action.type) {
     case 'SET_CG_KEY':      return { ...state, cgApiKeyEncoded: action.payload }
     case 'SET_CATEGORIES':  return { ...state, customCategories: action.payload }
+    case 'SET_ARCHIVED':    return { ...state, archivedSymbols: action.payload }
+    case 'TOGGLE_HIDE':       return { ...state, hideValues: !state.hideValues }
+    case 'SET_EXPENSE_CATS':  return { ...state, expenseCategories: action.payload }
     case 'ADD_TX':          return { ...state, transactions: [...state.transactions, action.payload] }
     case 'EDIT_TX':         return { ...state, transactions: state.transactions.map(t => t.id === action.payload.id ? action.payload : t) }
     case 'DELETE_TX':       return { ...state, transactions: state.transactions.filter(t => t.id !== action.payload) }
     case 'SET_PRICES':      return { ...state, prices: { ...state.prices, ...action.payload }, lastUpdated: Date.now(), isLoading: false, priceError: null }
     case 'LOADING':         return { ...state, isLoading: true, priceError: null }
     case 'PRICE_ERROR':     return { ...state, isLoading: false, priceError: action.payload }
-    case 'IMPORT':          return { ...state, ...action.payload, prices: {} }
+    case 'IMPORT':          return { ...state, ...action.payload, prices: {}, archivedSymbols: action.payload.archivedSymbols || [], expenseCategories: action.payload.expenseCategories || [] }
     default:                return state
   }
 }
@@ -39,9 +45,11 @@ export function AppProvider({ children }) {
 
   const getCgIds = useCallback(() => {
     const ids = new Set()
-    state.transactions.forEach(t => { if (t.cgId) ids.add(t.cgId) })
+    state.transactions.forEach(t => {
+      if (t.cgId && !state.archivedSymbols.includes(t.symbol)) ids.add(t.cgId)
+    })
     return [...ids]
-  }, [state.transactions])
+  }, [state.transactions, state.archivedSymbols])
 
   const refreshPrices = useCallback(async () => {
     const ids = getCgIds()
@@ -64,10 +72,12 @@ export function AppProvider({ children }) {
   useEffect(() => { save('cgApiKey', state.cgApiKeyEncoded) }, [state.cgApiKeyEncoded])
   useEffect(() => { save('categories', state.customCategories) }, [state.customCategories])
   useEffect(() => { save('transactions', state.transactions) }, [state.transactions])
+  useEffect(() => { save('archived', state.archivedSymbols) }, [state.archivedSymbols])
+  useEffect(() => { save('expenseCategories', state.expenseCategories) }, [state.expenseCategories])
 
   const setCgApiKey = (raw) => dispatch({ type: 'SET_CG_KEY', payload: raw ? encodeKey(raw) : '' })
 
-  const allCategories = ['BUY', 'SELL', ...state.customCategories]
+  const allCategories = ['BUY', 'SELL', 'LIQUIDEZ', ...state.customCategories]
 
   const addCategory = (name) => {
     const t = name.trim()
@@ -91,8 +101,29 @@ export function AppProvider({ children }) {
   const editTransaction = (tx) => dispatch({ type: 'EDIT_TX', payload: tx })
   const deleteTransaction = (id) => dispatch({ type: 'DELETE_TX', payload: id })
 
+  const toggleHideValues = () => dispatch({ type: 'TOGGLE_HIDE' })
+
+  const toggleExpenseCategory = (name) => {
+    const next = state.expenseCategories.includes(name)
+      ? state.expenseCategories.filter(c => c !== name)
+      : [...state.expenseCategories, name]
+    dispatch({ type: 'SET_EXPENSE_CATS', payload: next })
+  }
+
+  const archiveSymbol = (symbol) =>
+    dispatch({ type: 'SET_ARCHIVED', payload: [...new Set([...state.archivedSymbols, symbol])] })
+
+  const unarchiveSymbol = (symbol) =>
+    dispatch({ type: 'SET_ARCHIVED', payload: state.archivedSymbols.filter(s => s !== symbol) })
+
+  const reassignCgId = (symbol, newCgId, newName) => {
+    state.transactions
+      .filter(tx => tx.symbol === symbol)
+      .forEach(tx => dispatch({ type: 'EDIT_TX', payload: { ...tx, cgId: newCgId, name: newName } }))
+  }
+
   const exportData = (includeKey = false) => {
-    const data = { version: 2, exportedAt: new Date().toISOString(), transactions: state.transactions, customCategories: state.customCategories }
+    const data = { version: 2, exportedAt: new Date().toISOString(), transactions: state.transactions, customCategories: state.customCategories, archivedSymbols: state.archivedSymbols, expenseCategories: state.expenseCategories }
     if (includeKey && state.cgApiKeyEncoded) data.cgApiKeyEncoded = state.cgApiKeyEncoded
     return data
   }
@@ -104,6 +135,8 @@ export function AppProvider({ children }) {
       payload: {
         transactions: data.transactions || [],
         customCategories: data.customCategories || [],
+        archivedSymbols: data.archivedSymbols || [],
+        expenseCategories: data.expenseCategories || [],
         cgApiKeyEncoded: data.cgApiKeyEncoded || state.cgApiKeyEncoded,
       },
     })
@@ -114,7 +147,10 @@ export function AppProvider({ children }) {
       ...state, cgApiKey, allCategories,
       setCgApiKey,
       addCategory, renameCategory, deleteCategory,
-      addTransaction, editTransaction, deleteTransaction,
+      addTransaction, editTransaction, deleteTransaction, reassignCgId,
+      archivedSymbols: state.archivedSymbols, archiveSymbol, unarchiveSymbol,
+      hideValues: state.hideValues, toggleHideValues,
+      expenseCategories: state.expenseCategories, toggleExpenseCategory,
       refreshPrices, exportData, importData,
     }}>
       {children}

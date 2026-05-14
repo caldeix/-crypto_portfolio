@@ -27,13 +27,33 @@ export const buildPortfolio = (transactions, prices) => {
   }).filter(e => e.invested > 0 || e.amountHeld > 0)
 }
 
-export const buildTotals = (portfolio) => {
+export const buildTotals = (portfolio, allTransactions = [], expenseCategories = []) => {
   const totalInvested = portfolio.reduce((s, e) => s + e.invested, 0)
   const totalCurrentValue = portfolio.reduce((s, e) => s + e.currentValue, 0)
   const totalSold = portfolio.reduce((s, e) => s + e.soldValue, 0)
-  const totalPnL = totalCurrentValue + totalSold - totalInvested
-  const totalPct = totalInvested > 0 ? ((totalCurrentValue + totalSold) / totalInvested) - 1 : 0
-  return { totalInvested, totalCurrentValue, totalSold, totalPnL, totalPct }
+  const totalNetInvested = totalInvested - totalSold
+  const gastosByCategory = {}
+  let totalGastos = 0
+  let totalLiquidezDeposits = 0
+  let totalBuySpend = 0
+  let totalSellReceipt = 0
+  const firstLiquidezDate = allTransactions
+    .filter(t => t.category === 'LIQUIDEZ')
+    .reduce((min, t) => (!min || t.date < min ? t.date : min), null)
+  for (const t of allTransactions) {
+    if (expenseCategories.includes(t.category)) {
+      gastosByCategory[t.category] = (gastosByCategory[t.category] || 0) + t.totalUSD
+      totalGastos += t.totalUSD
+    }
+    if (t.category === 'LIQUIDEZ') totalLiquidezDeposits += t.totalUSD
+    if (firstLiquidezDate && t.date >= firstLiquidezDate && t.category === 'BUY') totalBuySpend += t.totalUSD
+    if (firstLiquidezDate && t.date >= firstLiquidezDate && t.category === 'SELL') totalSellReceipt += t.totalUSD
+  }
+  const totalLiquidez = totalLiquidezDeposits - totalBuySpend + totalSellReceipt
+  const totalPnL = totalCurrentValue + totalSold - totalInvested - totalGastos
+  const base = totalInvested + Math.max(totalGastos, 0)
+  const totalPct = base > 0 ? ((totalCurrentValue + totalSold) / base) - 1 : 0
+  return { totalInvested, totalNetInvested, totalCurrentValue, totalSold, totalGastos, gastosByCategory, totalPnL, totalPct, totalLiquidez }
 }
 
 export const fmt = (n, decimals = 2) =>
