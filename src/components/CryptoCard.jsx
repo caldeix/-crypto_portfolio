@@ -1,6 +1,9 @@
 import { fmt, fmtPct, fmtAmount } from '../utils/calculations'
+import { useApp } from '../context/AppContext'
 
-export default function CryptoCard({ entry, onClick }) {
+export default function CryptoCard({ entry, onClick, onReassign, onArchive, archived }) {
+  const { hideValues } = useApp()
+  const mv = (v) => hideValues ? '••••' : v
   const {
     symbol, name, amountHeld,
     currentPrice, currentValue,
@@ -22,7 +25,21 @@ export default function CryptoCard({ entry, onClick }) {
           </div>
         </div>
         <div className="crypto-card-value">
-          <div className="crypto-card-price">{fmt(currentValue)}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <div className="crypto-card-price">{mv(fmt(currentValue))}</div>
+            <button
+              className="btn-icon"
+              style={{ fontSize: '.8rem', opacity: 0.5, padding: '4px', minWidth: '26px', minHeight: '26px' }}
+              title="Reasignar moneda CoinGecko"
+              onClick={e => { e.stopPropagation(); onReassign() }}
+            >🔗</button>
+            <button
+              className="btn-icon"
+              style={{ fontSize: '.8rem', opacity: 0.5, padding: '4px', minWidth: '26px', minHeight: '26px' }}
+              title={archived ? 'Desarchivar' : 'Archivar'}
+              onClick={e => { e.stopPropagation(); onArchive() }}
+            >{archived ? '📤' : '🗄️'}</button>
+          </div>
           <div className={`crypto-card-change ${c24Class}`}>
             {change24h >= 0 ? '▲' : '▼'} {Math.abs(change24h).toFixed(2)}% 24h
           </div>
@@ -35,23 +52,23 @@ export default function CryptoCard({ entry, onClick }) {
         </div>
         <div className="stat">
           <span className="stat-label">Precio</span>
-          <span className="stat-value">{fmt(currentPrice, currentPrice < 1 ? 4 : 2)}</span>
+          <span className="stat-value">{mv(fmt(currentPrice, currentPrice < 1 ? 4 : 2))}</span>
         </div>
         <div className="stat">
           <span className="stat-label">Rent.</span>
-          <span className={`stat-value ${pnlClass}`}>{fmtPct(profitability)}</span>
+          <span className={`stat-value ${pnlClass}`}>{mv(fmtPct(profitability))}</span>
         </div>
         <div className="stat">
           <span className="stat-label">Invertido</span>
-          <span className="stat-value">{fmt(invested)}</span>
+          <span className="stat-value">{mv(fmt(invested))}</span>
         </div>
         <div className="stat">
           <span className="stat-label">Vendido</span>
-          <span className="stat-value">{fmt(soldValue)}</span>
+          <span className="stat-value">{mv(fmt(soldValue))}</span>
         </div>
         <div className="stat">
           <span className="stat-label">P&L</span>
-          <span className={`stat-value ${pnlClass}`}>{fmt(profitabilityUSD)}</span>
+          <span className={`stat-value ${pnlClass}`}>{mv(fmt(profitabilityUSD))}</span>
         </div>
       </div>
     </div>
