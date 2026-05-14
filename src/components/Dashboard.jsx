@@ -87,19 +87,18 @@ export default function Dashboard() {
             Invertido {mv(fmt(totals.totalNetInvested))}
           </div>
         </div>
-        {(Object.keys(totals.gastosByCategory || {}).length > 0 || totals.totalLiquidez !== 0) && (
+        {(totals.totalGastos > 0 || totals.totalLiquidez !== 0) && (
           <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
-            {Object.entries(totals.gastosByCategory || {}).map(([cat, val]) => (
+            {totals.totalGastos > 0 && (
               <div
-                key={cat}
-                className={val >= 0 ? 'pnl-chip neg' : 'pnl-chip pos'}
-                style={{ fontSize: '.74rem', cursor: 'pointer', userSelect: 'none', opacity: hiddenChips.has(cat) && !hideValues ? 0.6 : 1 }}
-                title={`Pulsa para ${hiddenChips.has(cat) ? 'mostrar' : 'ocultar'} — ${val >= 0 ? 'Gasto neto' : 'Recuperación neta'}`}
-                onClick={() => toggleChip(cat)}
+                className="pnl-chip neg"
+                style={{ fontSize: '.74rem', cursor: 'pointer', userSelect: 'none', opacity: hiddenChips.has('RETIRADO') && !hideValues ? 0.6 : 1 }}
+                title={`Pulsa para ${hiddenChips.has('RETIRADO') ? 'mostrar' : 'ocultar'} — Total retirado`}
+                onClick={() => toggleChip('RETIRADO')}
               >
-                💸 {cat} {mvChip(fmt(Math.abs(val)), cat)}
+                💸 Retirado {mvChip(fmt(totals.totalGastos), 'RETIRADO')}
               </div>
-            ))}
+            )}
             {totals.totalLiquidez !== 0 && (
               <div
                 className={totals.totalLiquidez >= 0 ? 'pnl-chip pos' : 'pnl-chip neg'}

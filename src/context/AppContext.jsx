@@ -83,6 +83,7 @@ export function AppProvider({ children }) {
     const t = name.trim()
     if (!t || allCategories.includes(t)) return
     dispatch({ type: 'SET_CATEGORIES', payload: [...state.customCategories, t] })
+    dispatch({ type: 'SET_EXPENSE_CATS', payload: [...state.expenseCategories, t] })
   }
 
   const renameCategory = (oldName, newName) => {
@@ -94,8 +95,10 @@ export function AppProvider({ children }) {
       .forEach(tx => dispatch({ type: 'EDIT_TX', payload: { ...tx, category: t } }))
   }
 
-  const deleteCategory = (name) =>
+  const deleteCategory = (name) => {
     dispatch({ type: 'SET_CATEGORIES', payload: state.customCategories.filter(c => c !== name) })
+    dispatch({ type: 'SET_EXPENSE_CATS', payload: state.expenseCategories.filter(c => c !== name) })
+  }
 
   const addTransaction = (tx) => dispatch({ type: 'ADD_TX', payload: { ...tx, id: genId() } })
   const editTransaction = (tx) => dispatch({ type: 'EDIT_TX', payload: tx })
