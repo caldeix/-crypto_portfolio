@@ -197,6 +197,7 @@ label { font-size: .8rem; color: var(--text-muted); display: block; margin-botto
 
 /* ── Crypto Card ── */
 .crypto-card {
+  min-width: 0;
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -229,7 +230,7 @@ label { font-size: .8rem; color: var(--text-muted); display: block; margin-botto
 }
 .stat { display: flex; flex-direction: column; gap: 2px; }
 .stat-label { font-size: .68rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .3px; }
-.stat-value { font-size: .85rem; font-weight: 600; }
+.stat-value { font-size: .85rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pos { color: var(--success); }
 .neg { color: var(--danger); }
 

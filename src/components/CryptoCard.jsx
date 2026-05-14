@@ -1,4 +1,4 @@
-import { fmt, fmtPct, fmtAmount } from '../utils/calculations'
+import { fmt, fmtPrice, fmtPct, fmtAmount } from '../utils/calculations'
 import { useApp } from '../context/AppContext'
 
 export default function CryptoCard({ entry, onClick, onReassign, onArchive, archived }) {
@@ -14,15 +14,6 @@ export default function CryptoCard({ entry, onClick, onReassign, onArchive, arch
 
   const pnlClass = profitabilityUSD >= 0 ? 'pos' : 'neg'
   const c24Class = change24h >= 0 ? 'pos' : 'neg'
-  const fmtP = (p) => {
-    const a = Math.abs(p)
-    if (a === 0) return 2
-    if (a < 0.000001) return 10
-    if (a < 0.0001) return 8
-    if (a < 0.01) return 6
-    if (a < 1) return 4
-    return 2
-  }
 
   return (
     <div className="crypto-card" onClick={onClick}>
@@ -63,11 +54,11 @@ export default function CryptoCard({ entry, onClick, onReassign, onArchive, arch
         </div>
         <div className="stat">
           <span className="stat-label">Avg Compra</span>
-          <span className="stat-value">{mv(avgBuy > 0 ? fmt(avgBuy, fmtP(avgBuy)) : '—')}</span>
+          <span className="stat-value">{mv(avgBuy > 0 ? fmtPrice(avgBuy) : '—')}</span>
         </div>
         <div className="stat">
           <span className="stat-label">Precio act.</span>
-          <span className="stat-value">{mv(currentPrice > 0 ? fmt(currentPrice, fmtP(currentPrice)) : '—')}</span>
+          <span className="stat-value">{mv(currentPrice > 0 ? fmtPrice(currentPrice) : '—')}</span>
         </div>
         {/* Row 2 */}
         <div className="stat">
@@ -76,7 +67,7 @@ export default function CryptoCard({ entry, onClick, onReassign, onArchive, arch
         </div>
         <div className="stat">
           <span className="stat-label">Avg Venta</span>
-          <span className="stat-value">{mv(avgSell > 0 ? fmt(avgSell, fmtP(avgSell)) : '—')}</span>
+          <span className="stat-value">{mv(avgSell > 0 ? fmtPrice(avgSell) : '—')}</span>
         </div>
         <div className="stat">
           <span className="stat-label">Vendido</span>
