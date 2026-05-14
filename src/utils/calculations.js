@@ -3,7 +3,7 @@ export const buildPortfolio = (transactions, prices) => {
 
   for (const tx of transactions) {
     const { cryptoId, cgId, symbol, name, category, amount, totalUSD } = tx
-    const key = cgId || symbol   // group by cgId, fall back to symbol
+    const key = cgId || symbol
     if (!map[key]) {
       map[key] = { cryptoId, cgId, symbol, name, amountHeld: 0, invested: 0, soldValue: 0 }
     }
@@ -27,33 +27,66 @@ export const buildPortfolio = (transactions, prices) => {
   }).filter(e => e.invested > 0 || e.amountHeld > 0)
 }
 
+// Calcula el saldo de liquidez disponible y si el sistema está activo.
+// Solo cuenta BUY/SELL/gastos a partir de la primera transacción de LIQUIDEZ.
+export const computeLiquidez = (transactions, expenseCategories = []) => {
+  const firstDate = transactions
+    .filter(t => t.category === 'LIQUIDEZ')
+    .reduce((min, t) => (!min || t.date < min ? t.date : min), null)
+  if (!firstDate) return { liquidez: 0, hasLiquidez: false }
+
+  let deposits = 0, buys = 0, sells = 0, gastos = 0
+  for (const t of transactions) {
+    if (t.category === 'LIQUIDEZ') { deposits += t.totalUSD; continue }
+    if (t.date < firstDate) continue
+    if (t.category === 'BUY') buys += t.totalUSD
+    else if (t.category === 'SELL') sells += t.totalUSD
+    else if (expenseCategories.includes(t.category)) gastos += t.totalUSD
+  }
+  return { liquidez: deposits - buys + sells - gastos, hasLiquidez: true }
+}
+
 export const buildTotals = (portfolio, allTransactions = [], expenseCategories = []) => {
   const totalInvested = portfolio.reduce((s, e) => s + e.invested, 0)
   const totalCurrentValue = portfolio.reduce((s, e) => s + e.currentValue, 0)
   const totalSold = portfolio.reduce((s, e) => s + e.soldValue, 0)
   const totalNetInvested = totalInvested - totalSold
+
   const gastosByCategory = {}
   let totalGastos = 0
   let totalLiquidezDeposits = 0
-  let totalBuySpend = 0
-  let totalSellReceipt = 0
+  let preLiquidezBuys = 0
+  let preLiquidezSells = 0
+
   const firstLiquidezDate = allTransactions
     .filter(t => t.category === 'LIQUIDEZ')
     .reduce((min, t) => (!min || t.date < min ? t.date : min), null)
+
   for (const t of allTransactions) {
     if (expenseCategories.includes(t.category)) {
       gastosByCategory[t.category] = (gastosByCategory[t.category] || 0) + t.totalUSD
       totalGastos += t.totalUSD
     }
-    if (t.category === 'LIQUIDEZ') totalLiquidezDeposits += t.totalUSD
-    if (firstLiquidezDate && t.date >= firstLiquidezDate && t.category === 'BUY') totalBuySpend += t.totalUSD
-    if (firstLiquidezDate && t.date >= firstLiquidezDate && t.category === 'SELL') totalSellReceipt += t.totalUSD
+    if (t.category === 'LIQUIDEZ') { totalLiquidezDeposits += t.totalUSD; continue }
+    if (firstLiquidezDate && t.date < firstLiquidezDate) {
+      if (t.category === 'BUY') preLiquidezBuys += t.totalUSD
+      if (t.category === 'SELL') preLiquidezSells += t.totalUSD
+    }
   }
-  const totalLiquidez = totalLiquidezDeposits - totalBuySpend + totalSellReceipt
-  const totalPnL = totalCurrentValue + totalSold - totalInvested - totalGastos
-  const base = totalInvested + Math.max(totalGastos, 0)
-  const totalPct = base > 0 ? ((totalCurrentValue + totalSold) / base) - 1 : 0
-  return { totalInvested, totalNetInvested, totalCurrentValue, totalSold, totalGastos, gastosByCategory, totalPnL, totalPct, totalLiquidez }
+
+  const { liquidez: totalLiquidez } = computeLiquidez(allTransactions, expenseCategories)
+
+  const totalPnL = totalCurrentValue + totalSold - totalInvested
+
+  // Base = lo que entró al sistema antes del LIQUIDEZ (neto) + los depósitos de LIQUIDEZ
+  // Si no hay LIQUIDEZ trackado, usa totalInvested como fallback
+  const preBase = preLiquidezBuys - preLiquidezSells
+  const base = firstLiquidezDate
+    ? totalLiquidezDeposits + Math.max(preBase, 0)
+    : totalInvested
+  const totalPct = base > 0 ? totalPnL / base : 0
+
+  return { totalInvested, totalNetInvested, totalCurrentValue, totalSold, totalGastos, gastosByCategory, totalPnL, totalPct, totalLiquidez, totalLiquidezDeposits }
 }
 
 export const fmt = (n, decimals = 2) =>
