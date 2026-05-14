@@ -11,7 +11,6 @@ const initialState = {
   customCategories: load('categories', []),
   transactions: load('transactions', []),
   archivedSymbols: load('archived', []),
-  expenseCategories: load('expenseCategories', []),
   prices: {},
   lastUpdated: null,
   isLoading: false,
@@ -24,15 +23,15 @@ function reducer(state, action) {
     case 'SET_CG_KEY':      return { ...state, cgApiKeyEncoded: action.payload }
     case 'SET_CATEGORIES':  return { ...state, customCategories: action.payload }
     case 'SET_ARCHIVED':    return { ...state, archivedSymbols: action.payload }
-    case 'TOGGLE_HIDE':       return { ...state, hideValues: !state.hideValues }
-    case 'SET_EXPENSE_CATS':  return { ...state, expenseCategories: action.payload }
+    case 'TOGGLE_HIDE':     return { ...state, hideValues: !state.hideValues }
     case 'ADD_TX':          return { ...state, transactions: [...state.transactions, action.payload] }
     case 'EDIT_TX':         return { ...state, transactions: state.transactions.map(t => t.id === action.payload.id ? action.payload : t) }
     case 'DELETE_TX':       return { ...state, transactions: state.transactions.filter(t => t.id !== action.payload) }
+    case 'SET_TXS':         return { ...state, transactions: action.payload }
     case 'SET_PRICES':      return { ...state, prices: { ...state.prices, ...action.payload }, lastUpdated: Date.now(), isLoading: false, priceError: null }
     case 'LOADING':         return { ...state, isLoading: true, priceError: null }
     case 'PRICE_ERROR':     return { ...state, isLoading: false, priceError: action.payload }
-    case 'IMPORT':          return { ...state, ...action.payload, prices: {}, archivedSymbols: action.payload.archivedSymbols || [], expenseCategories: action.payload.expenseCategories || [] }
+    case 'IMPORT':          return { ...state, ...action.payload, prices: {}, archivedSymbols: action.payload.archivedSymbols || [] }
     default:                return state
   }
 }
@@ -42,6 +41,19 @@ export function AppProvider({ children }) {
   const timerRef = useRef(null)
 
   const cgApiKey = decodeKey(state.cgApiKeyEncoded)
+
+  // Migración única: eliminar transacciones y categorías custom antiguas (gastos)
+  useEffect(() => {
+    const oldExpenseCats = load('expenseCategories', [])
+    const oldCustomCats  = load('categories', [])
+    const toRemove = [...new Set([...oldExpenseCats, ...oldCustomCats])]
+    if (toRemove.length > 0) {
+      const cleaned = state.transactions.filter(t => !toRemove.includes(t.category))
+      dispatch({ type: 'SET_TXS', payload: cleaned })
+      dispatch({ type: 'SET_CATEGORIES', payload: [] })
+      localStorage.removeItem('cp_expenseCategories')
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const getCgIds = useCallback(() => {
     const ids = new Set()
@@ -73,7 +85,6 @@ export function AppProvider({ children }) {
   useEffect(() => { save('categories', state.customCategories) }, [state.customCategories])
   useEffect(() => { save('transactions', state.transactions) }, [state.transactions])
   useEffect(() => { save('archived', state.archivedSymbols) }, [state.archivedSymbols])
-  useEffect(() => { save('expenseCategories', state.expenseCategories) }, [state.expenseCategories])
 
   const setCgApiKey = (raw) => dispatch({ type: 'SET_CG_KEY', payload: raw ? encodeKey(raw) : '' })
 
@@ -83,7 +94,6 @@ export function AppProvider({ children }) {
     const t = name.trim()
     if (!t || allCategories.includes(t)) return
     dispatch({ type: 'SET_CATEGORIES', payload: [...state.customCategories, t] })
-    dispatch({ type: 'SET_EXPENSE_CATS', payload: [...state.expenseCategories, t] })
   }
 
   const renameCategory = (oldName, newName) => {
@@ -95,23 +105,14 @@ export function AppProvider({ children }) {
       .forEach(tx => dispatch({ type: 'EDIT_TX', payload: { ...tx, category: t } }))
   }
 
-  const deleteCategory = (name) => {
+  const deleteCategory = (name) =>
     dispatch({ type: 'SET_CATEGORIES', payload: state.customCategories.filter(c => c !== name) })
-    dispatch({ type: 'SET_EXPENSE_CATS', payload: state.expenseCategories.filter(c => c !== name) })
-  }
 
   const addTransaction = (tx) => dispatch({ type: 'ADD_TX', payload: { ...tx, id: genId() } })
   const editTransaction = (tx) => dispatch({ type: 'EDIT_TX', payload: tx })
   const deleteTransaction = (id) => dispatch({ type: 'DELETE_TX', payload: id })
 
   const toggleHideValues = () => dispatch({ type: 'TOGGLE_HIDE' })
-
-  const toggleExpenseCategory = (name) => {
-    const next = state.expenseCategories.includes(name)
-      ? state.expenseCategories.filter(c => c !== name)
-      : [...state.expenseCategories, name]
-    dispatch({ type: 'SET_EXPENSE_CATS', payload: next })
-  }
 
   const archiveSymbol = (symbol) =>
     dispatch({ type: 'SET_ARCHIVED', payload: [...new Set([...state.archivedSymbols, symbol])] })
@@ -126,7 +127,7 @@ export function AppProvider({ children }) {
   }
 
   const exportData = (includeKey = false) => {
-    const data = { version: 2, exportedAt: new Date().toISOString(), transactions: state.transactions, customCategories: state.customCategories, archivedSymbols: state.archivedSymbols, expenseCategories: state.expenseCategories }
+    const data = { version: 3, exportedAt: new Date().toISOString(), transactions: state.transactions, customCategories: state.customCategories, archivedSymbols: state.archivedSymbols }
     if (includeKey && state.cgApiKeyEncoded) data.cgApiKeyEncoded = state.cgApiKeyEncoded
     return data
   }
@@ -139,7 +140,6 @@ export function AppProvider({ children }) {
         transactions: data.transactions || [],
         customCategories: data.customCategories || [],
         archivedSymbols: data.archivedSymbols || [],
-        expenseCategories: data.expenseCategories || [],
         cgApiKeyEncoded: data.cgApiKeyEncoded || state.cgApiKeyEncoded,
       },
     })
@@ -153,7 +153,6 @@ export function AppProvider({ children }) {
       addTransaction, editTransaction, deleteTransaction, reassignCgId,
       archivedSymbols: state.archivedSymbols, archiveSymbol, unarchiveSymbol,
       hideValues: state.hideValues, toggleHideValues,
-      expenseCategories: state.expenseCategories, toggleExpenseCategory,
       refreshPrices, exportData, importData,
     }}>
       {children}
