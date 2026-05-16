@@ -8,13 +8,6 @@ const IconGlobe = () => (
   </svg>
 )
 
-const IconHolder = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ width: 15, height: 15 }}>
-    <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
-    <circle cx="9" cy="7" r="4"/>
-    <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
-  </svg>
-)
 
 export default function CryptoCard({ entry, onClick, onReassign, onArchive, archived }) {
   const { hideValues, cgMeta } = useApp()
@@ -33,8 +26,7 @@ export default function CryptoCard({ entry, onClick, onReassign, onArchive, arch
   const pnlClass = profitabilityUSD >= 0 ? 'pos' : 'neg'
   const c24Class = change24h >= 0 ? 'pos' : 'neg'
 
-  const webHref    = meta?.homepage
-    || (cgId ? `https://www.coingecko.com/en/coins/${cgId}` : null)
+  const webHref    = meta?.homepage || null
   const holderHref = contractAddress
     ? `https://www.holderscan.com/token/${contractAddress}`
     : null
@@ -138,7 +130,7 @@ export default function CryptoCard({ entry, onClick, onReassign, onArchive, arch
               style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#7C3AED', fontSize: '.72rem', textDecoration: 'none' }}
               title="HolderScan"
             >
-              <IconHolder /> Holders
+              👥 Holders
             </a>
           ) : (
             <span style={{ fontSize: '.65rem', color: 'var(--text-dim)' }} title="Abre el detalle para cargar el contrato">—</span>
