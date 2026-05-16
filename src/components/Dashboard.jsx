@@ -82,9 +82,7 @@ export default function Dashboard() {
           <div className="pnl-chip neu" style={{ fontSize: '.76rem' }}>
             Invertido {mv(fmt(totals.totalNetInvested))}
           </div>
-        </div>
-        {totals.totalLiquidez !== 0 && (
-          <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
+          {totals.totalLiquidez !== 0 && (
             <div
               className={totals.totalLiquidez >= 0 ? 'pnl-chip pos' : 'pnl-chip neg'}
               style={{ fontSize: '.74rem', cursor: 'pointer', userSelect: 'none', opacity: hiddenChips.has('LIQUIDEZ') && !hideValues ? 0.6 : 1 }}
@@ -93,8 +91,8 @@ export default function Dashboard() {
             >
               💵 Liquidez {mvChip(fmt(totals.totalLiquidez), 'LIQUIDEZ')}
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Sort bar — toggle */}
