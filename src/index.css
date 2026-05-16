@@ -215,7 +215,7 @@ label { font-size: .8rem; color: var(--text-muted); display: block; margin-botto
   background: var(--primary-dim);
   display: flex; align-items: center; justify-content: center;
   font-size: .75rem; font-weight: 700; color: var(--primary);
-  flex-shrink: 0;
+  flex-shrink: 0; overflow: hidden;
 }
 .crypto-card-name { font-size: .7rem; color: var(--text-muted); }
 .crypto-card-symbol-text { font-size: .95rem; font-weight: 700; }

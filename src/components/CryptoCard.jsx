@@ -2,7 +2,8 @@ import { fmt, fmtPrice, fmtPct, fmtAmount } from '../utils/calculations'
 import { useApp } from '../context/AppContext'
 
 export default function CryptoCard({ entry, onClick, onReassign, onArchive, archived }) {
-  const { hideValues } = useApp()
+  const { hideValues, cgMeta } = useApp()
+  const thumb = entry.cgId && cgMeta[entry.cgId]?.thumb
   const mv = (v) => hideValues ? '••••' : v
   const {
     symbol, name, amountHeld,
@@ -19,7 +20,12 @@ export default function CryptoCard({ entry, onClick, onReassign, onArchive, arch
     <div className="crypto-card" onClick={onClick}>
       <div className="crypto-card-header">
         <div className="crypto-card-symbol">
-          <div className="crypto-avatar">{symbol.slice(0, 3)}</div>
+          <div className="crypto-avatar">
+            {thumb
+              ? <img src={thumb} alt={symbol} width={36} height={36} style={{ borderRadius: '50%', display: 'block' }} />
+              : symbol.slice(0, 3)
+            }
+          </div>
           <div>
             <div className="crypto-card-symbol-text">{symbol}</div>
             <div className="crypto-card-name">{name}</div>
