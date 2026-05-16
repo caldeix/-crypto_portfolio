@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 import { useApp } from '../context/AppContext'
 import { buildPortfolio, buildTotals, fmt, fmtPct } from '../utils/calculations'
 
@@ -156,40 +156,19 @@ function CustomBarEditor({ portfolio, onConfirm, onClose }) {
   )
 }
 
-function FilterPanel({ items, hidden, onToggle, onClose }) {
-  return (
-    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal">
-        <div className="modal-header">
-          <span className="modal-title">Mostrar / Ocultar estadísticas</span>
-          <button className="btn-icon" onClick={onClose}>✕</button>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          {items.map(item => (
-            <label key={item.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', padding: '10px 12px', borderRadius: 'var(--radius-sm)', background: 'var(--card)', border: '1px solid var(--border)', marginBottom: 0 }}>
-              <input
-                type="checkbox"
-                checked={!hidden.has(item.id)}
-                onChange={() => onToggle(item.id)}
-                style={{ width: 'auto', accentColor: 'var(--primary)' }}
-              />
-              <span style={{ fontSize: '.9rem' }}>{item.label}</span>
-            </label>
-          ))}
-        </div>
-        <div className="modal-actions">
-          <button className="btn btn-primary" onClick={onClose}>Listo</button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 export default function Stats() {
   const { transactions, prices, archivedSymbols, hideValues, customBars, addCustomBar, deleteCustomBar } = useApp()
   const [showEditor, setShowEditor]   = useState(false)
   const [showFilter, setShowFilter]   = useState(false)
   const [hiddenStats, setHiddenStats] = useState(new Set())
+  const filterRef = useRef(null)
+
+  useEffect(() => {
+    if (!showFilter) return
+    const handler = (e) => { if (filterRef.current && !filterRef.current.contains(e.target)) setShowFilter(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showFilter])
 
   const portfolio = useMemo(() => buildPortfolio(transactions, prices), [transactions, prices])
   const active    = useMemo(() => portfolio.filter(e => !archivedSymbols.includes(e.symbol)), [portfolio, archivedSymbols])
@@ -230,19 +209,48 @@ export default function Stats() {
 
   return (
     <div className="main-content">
-      <div className="stats-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div className="stats-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative' }}>
         <div className="stats-title">Estadísticas</div>
         {filterItems.length > 0 && (
-          <button
-            className="btn btn-ghost btn-sm"
-            style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '.75rem' }}
-            onClick={() => setShowFilter(true)}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 14, height: 14 }}>
-              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
-            </svg>
-            Filtrar
-          </button>
+          <div ref={filterRef} style={{ position: 'relative' }}>
+            <button
+              className="btn btn-ghost btn-sm"
+              style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '.75rem' }}
+              onClick={() => setShowFilter(v => !v)}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 14, height: 14 }}>
+                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+              </svg>
+              Filtrar
+            </button>
+
+            {showFilter && (
+              <div style={{
+                position: 'absolute', top: 'calc(100% + 6px)', right: 0,
+                background: 'var(--card)', border: '1px solid var(--border)',
+                borderRadius: 'var(--radius)', padding: '6px',
+                minWidth: '200px', zIndex: 50,
+                boxShadow: '0 8px 24px rgba(0,0,0,.5)',
+              }}>
+                {filterItems.map(item => (
+                  <label key={item.id} style={{
+                    display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer',
+                    padding: '8px 10px', borderRadius: 'var(--radius-sm)', marginBottom: '2px',
+                    background: hiddenStats.has(item.id) ? 'transparent' : 'var(--primary-dim)',
+                    transition: 'background .12s',
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={!hiddenStats.has(item.id)}
+                      onChange={() => toggleHidden(item.id)}
+                      style={{ width: 'auto', accentColor: 'var(--primary)', flexShrink: 0 }}
+                    />
+                    <span style={{ fontSize: '.82rem', color: 'var(--text)' }}>{item.label}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
         )}
       </div>
       <div className="stats-list">
@@ -305,14 +313,6 @@ export default function Stats() {
         />
       )}
 
-      {showFilter && (
-        <FilterPanel
-          items={filterItems}
-          hidden={hiddenStats}
-          onToggle={toggleHidden}
-          onClose={() => setShowFilter(false)}
-        />
-      )}
     </div>
   )
 }
