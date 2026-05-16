@@ -11,6 +11,7 @@ const initialState = {
   transactions: load('transactions', []),
   archivedSymbols: load('archived', []),
   cgMeta: load('cgMeta', {}),
+  customBars: load('customBars', []),
   prices: {},
   lastUpdated: null,
   isLoading: false,
@@ -32,6 +33,7 @@ function reducer(state, action) {
     case 'LOADING':         return { ...state, isLoading: true, priceError: null }
     case 'PRICE_ERROR':     return { ...state, isLoading: false, priceError: action.payload }
     case 'SET_CG_META':     return { ...state, cgMeta: { ...state.cgMeta, ...action.payload } }
+    case 'SET_CUSTOM_BARS': return { ...state, customBars: action.payload }
     case 'IMPORT':          return { ...state, ...action.payload, prices: {}, archivedSymbols: action.payload.archivedSymbols || [], cgMeta: action.payload.cgMeta || state.cgMeta }
     default:                return state
   }
@@ -89,6 +91,7 @@ export function AppProvider({ children }) {
   useEffect(() => { save('transactions', state.transactions) }, [state.transactions])
   useEffect(() => { save('archived', state.archivedSymbols) }, [state.archivedSymbols])
   useEffect(() => { save('cgMeta', state.cgMeta) }, [state.cgMeta])
+  useEffect(() => { save('customBars', state.customBars) }, [state.customBars])
 
   const setCgApiKey = (raw) => dispatch({ type: 'SET_CG_KEY', payload: raw ? encodeKey(raw) : '' })
 
@@ -129,6 +132,11 @@ export function AppProvider({ children }) {
     dispatch({ type: 'SET_CG_META', payload: { [cgId]: meta } })
   }
 
+  const addCustomBar = (bar) =>
+    dispatch({ type: 'SET_CUSTOM_BARS', payload: [...state.customBars, { ...bar, id: genId() }] })
+  const deleteCustomBar = (id) =>
+    dispatch({ type: 'SET_CUSTOM_BARS', payload: state.customBars.filter(b => b.id !== id) })
+
   const reassignCgId = (symbol, newCgId, newName, thumb) => {
     state.transactions
       .filter(tx => tx.symbol === symbol)
@@ -164,6 +172,7 @@ export function AppProvider({ children }) {
       cgMeta: state.cgMeta, saveCgMeta,
       archivedSymbols: state.archivedSymbols, archiveSymbol, unarchiveSymbol,
       hideValues: state.hideValues, toggleHideValues,
+      customBars: state.customBars, addCustomBar, deleteCustomBar,
       refreshPrices, exportData, importData,
     }}>
       {children}
