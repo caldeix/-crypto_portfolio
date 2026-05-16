@@ -3,6 +3,7 @@ import { useApp } from '../context/AppContext'
 import { buildPortfolio, buildTotals, fmt, fmtPct } from '../utils/calculations'
 import CryptoCard from './CryptoCard'
 import SearchCryptoModal from './modals/SearchCryptoModal'
+import GlobalSearchScreen from './GlobalSearchScreen'
 
 const SORT_KEYS = [
   { key: 'value', label: 'Valor' },
@@ -24,9 +25,10 @@ const sortFn = (key) => {
 
 export default function Dashboard({ onOpenDetail }) {
   const { transactions, prices, reassignCgId, archivedSymbols, archiveSymbol, unarchiveSymbol, hideValues, toggleHideValues } = useApp()
-  const [reassignTarget, setReassignTarget] = useState(null)
-  const [showArchived, setShowArchived] = useState(false)
-  const [sortBy, setSortBy] = useState('value-desc')
+  const [reassignTarget, setReassignTarget]     = useState(null)
+  const [showArchived, setShowArchived]         = useState(false)
+  const [sortBy, setSortBy]                     = useState('value-desc')
+  const [showGlobalSearch, setShowGlobalSearch] = useState(false)
   const [hiddenChips, setHiddenChips] = useState(new Set())
 
   const toggleChip = (key) => setHiddenChips(prev => {
@@ -76,13 +78,11 @@ export default function Dashboard({ onOpenDetail }) {
           Invertido {mv(fmt(totals.totalNetInvested))}
         </div>
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
-          {totals.totalCurrentValue > 0 && (
-            <div className={`pnl-chip ${total24hUSD >= 0 ? 'pos' : 'neg'}`} style={{ fontSize: '.74rem' }}>
-              Hoy {mv(`${total24hUSD >= 0 ? '+' : ''}${fmt(total24hUSD)}`)} ({mv(fmtPct(total24hPct))})
-            </div>
-          )}
-          <div className={totals.totalPnL >= 0 ? 'pnl-chip pos' : 'pnl-chip neg'} style={{ fontSize: '.74rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginTop: '6px' }}>
+          <div className={`pnl-chip ${total24hUSD >= 0 ? 'pos' : 'neg'}`} style={{ fontSize: '.74rem', justifyContent: 'center' }}>
+            Hoy {mv(`${total24hUSD >= 0 ? '+' : ''}${fmt(total24hUSD)}`)} ({mv(fmtPct(total24hPct))})
+          </div>
+          <div className={totals.totalPnL >= 0 ? 'pnl-chip pos' : 'pnl-chip neg'} style={{ fontSize: '.74rem', justifyContent: 'center' }}>
             Total {mv(`${totals.totalPnL >= 0 ? '+' : ''}${fmt(totals.totalPnL)}`)} ({mv(fmtPct(totals.totalPct))})
           </div>
         </div>
@@ -101,8 +101,8 @@ export default function Dashboard({ onOpenDetail }) {
         )}
       </div>
 
-      {/* Sort bar — toggle */}
-      <div style={{ display: 'flex', gap: '6px', padding: '0 0 4px', marginBottom: '4px' }}>
+      {/* Sort bar + global search */}
+      <div style={{ display: 'flex', gap: '6px', padding: '0 0 4px', marginBottom: '4px', alignItems: 'center' }}>
         {SORT_KEYS.map(({ key, label }) => {
           const [activeKey, activeDir] = sortBy.split('-')
           const isActive = activeKey === key
@@ -117,6 +117,21 @@ export default function Dashboard({ onOpenDetail }) {
             >{label}{arrow}</button>
           )
         })}
+        <button
+          onClick={() => setShowGlobalSearch(true)}
+          style={{
+            flex: 1, display: 'flex', alignItems: 'center', gap: '5px',
+            padding: '5px 10px', background: 'var(--surface)',
+            border: '1px solid var(--border)', borderRadius: '20px',
+            color: 'var(--text-dim)', fontSize: '.74rem', cursor: 'text',
+            minWidth: 0,
+          }}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 13, height: 13, flexShrink: 0 }}>
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Buscar…</span>
+        </button>
       </div>
 
       {/* Active grid */}
@@ -167,6 +182,28 @@ export default function Dashboard({ onOpenDetail }) {
             setReassignTarget(null)
           }}
           onClose={() => setReassignTarget(null)}
+        />
+      )}
+
+      {showGlobalSearch && (
+        <GlobalSearchScreen
+          onSelect={crypto => {
+            setShowGlobalSearch(false)
+            if (onOpenDetail) onOpenDetail({
+              cgId: crypto.cgId,
+              symbol: crypto.symbol,
+              name: crypto.name,
+              currentPrice: 0,
+              change24h: 0,
+              currentValue: 0,
+              invested: 0,
+              profitabilityUSD: 0,
+              profitability: 0,
+              amountHeld: 0,
+              avgBuy: 0,
+            })
+          }}
+          onClose={() => setShowGlobalSearch(false)}
         />
       )}
     </div>
