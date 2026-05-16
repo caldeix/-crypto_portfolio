@@ -26,9 +26,13 @@ export default function StatusBanner() {
           }
         </span>
       </div>
-      <button className="btn btn-ghost btn-sm" onClick={refreshPrices} disabled={isLoading}>
-        ↻ Refrescar
-      </button>
+      <button
+        className="btn-icon"
+        onClick={refreshPrices}
+        disabled={isLoading}
+        title="Refrescar precios"
+        style={{ fontSize: '1.15rem', opacity: isLoading ? 0.4 : 0.7 }}
+      >↻</button>
     </div>
   )
 }

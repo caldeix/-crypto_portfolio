@@ -89,10 +89,15 @@ export default function CryptoCard({ entry, onClick, onReassign, onArchive, arch
           <span className={`stat-value ${unrealizedUSD >= 0 ? 'pos' : 'neg'}`}>{mv(fmt(unrealizedUSD))}</span>
         </div>
         <div className="stat">
-          <span className="stat-label">vs Avg</span>
+          <span className="stat-label">vs Avg (Rent.)</span>
           <span className={`stat-value ${unrealizedPct === null ? '' : unrealizedPct >= 0 ? 'pos' : 'neg'}`}>
             {unrealizedPct === null ? '—' : mv(fmtPct(unrealizedPct))}
           </span>
+          {unrealizedPct !== null && (
+            <span className={`stat-value ${pnlClass}`} style={{ fontSize: '.76rem' }}>
+              ({mv(fmtPct(profitability))})
+            </span>
+          )}
         </div>
       </div>
     </div>
