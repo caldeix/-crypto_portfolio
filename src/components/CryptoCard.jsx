@@ -1,12 +1,26 @@
 import { fmt, fmtPrice, fmtPct, fmtAmount } from '../utils/calculations'
 import { useApp } from '../context/AppContext'
 
+const IconGlobe = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ width: 15, height: 15 }}>
+    <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/>
+    <path d="M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/>
+  </svg>
+)
+
+const IconDex = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ width: 15, height: 15 }}>
+    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+  </svg>
+)
+
 export default function CryptoCard({ entry, onClick, onReassign, onArchive, archived }) {
   const { hideValues, cgMeta } = useApp()
-  const thumb = entry.cgId && cgMeta[entry.cgId]?.thumb
+  const meta  = entry.cgId ? cgMeta[entry.cgId] : null
+  const thumb = meta?.thumb
   const mv = (v) => hideValues ? '••••' : v
   const {
-    symbol, name, amountHeld,
+    symbol, name, cgId, amountHeld,
     currentPrice, currentValue,
     profitability, profitabilityUSD,
     avgBuy, avgSell, unrealizedPct, unrealizedUSD,
@@ -15,6 +29,10 @@ export default function CryptoCard({ entry, onClick, onReassign, onArchive, arch
 
   const pnlClass = profitabilityUSD >= 0 ? 'pos' : 'neg'
   const c24Class = change24h >= 0 ? 'pos' : 'neg'
+
+  const webHref = meta?.homepage
+    || (cgId ? `https://www.coingecko.com/en/coins/${cgId}` : null)
+  const dexHref = `https://dexscreener.com/search?q=${encodeURIComponent(symbol)}`
 
   return (
     <div className="crypto-card" onClick={onClick}>
@@ -94,12 +112,31 @@ export default function CryptoCard({ entry, onClick, onReassign, onArchive, arch
             {unrealizedPct === null ? '—' : mv(fmtPct(unrealizedPct))}
           </span>
         </div>
-        {/* Row 4 — Rentabilidad total */}
-        <div />
-        <div className="stat">
-          <span className="stat-label">Rent.</span>
+        {/* Row 4 — links col1 col2, RENT col3 */}
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          {webHref && (
+            <a
+              href={webHref} target="_blank" rel="noopener noreferrer"
+              onClick={e => e.stopPropagation()}
+              style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-muted)', fontSize: '.72rem', textDecoration: 'none' }}
+              title="Web oficial"
+            >
+              <IconGlobe /> Web
+            </a>
+          )}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <a
+            href={dexHref} target="_blank" rel="noopener noreferrer"
+            onClick={e => e.stopPropagation()}
+            style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#00b386', fontSize: '.72rem', textDecoration: 'none' }}
+            title="DexScreener"
+          >
+            <IconDex /> Dex
+          </a>
         </div>
         <div className="stat">
+          <span className="stat-label">Rent.</span>
           <span className={`stat-value ${pnlClass}`}>{mv(fmtPct(profitability))}</span>
         </div>
       </div>
