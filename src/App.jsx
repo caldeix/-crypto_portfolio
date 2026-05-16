@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react'
 import StatusBanner from './components/StatusBanner'
 import Dashboard from './components/Dashboard'
 import TransactionHistory from './components/TransactionHistory'
+import Stats from './components/Stats'
 import AddTransactionModal from './components/modals/AddTransactionModal'
 import ConfigModal from './components/modals/ConfigModal'
 
@@ -28,6 +29,13 @@ const IconPlus = () => (
     <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
   </svg>
 )
+const IconStats = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="18" y1="20" x2="18" y2="10"/>
+    <line x1="12" y1="20" x2="12" y2="4"/>
+    <line x1="6"  y1="20" x2="6"  y2="14"/>
+  </svg>
+)
 
 export default function App() {
   const [tab, setTab] = useState('home')
@@ -39,7 +47,8 @@ export default function App() {
       <StatusBanner />
 
       <main style={{ flex: 1 }}>
-        {tab === 'home' && <Dashboard />}
+        {tab === 'home'    && <Dashboard />}
+        {tab === 'stats'   && <Stats />}
         {tab === 'history' && <TransactionHistory />}
       </main>
 
@@ -50,6 +59,14 @@ export default function App() {
         >
           <IconHome />
           Dashboard
+        </button>
+
+        <button
+          className={`nav-item ${tab === 'stats' ? 'active' : ''}`}
+          onClick={() => setTab('stats')}
+        >
+          <IconStats />
+          Stats
         </button>
 
         <button className="nav-fab" onClick={() => setShowAdd(true)} aria-label="Añadir transacción">
