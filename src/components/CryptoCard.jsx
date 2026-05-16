@@ -9,7 +9,7 @@ export default function CryptoCard({ entry, onClick, onReassign, onArchive, arch
     symbol, name, amountHeld,
     currentPrice, currentValue,
     profitability, profitabilityUSD,
-    avgBuy, avgSell, unrealizedPct,
+    avgBuy, avgSell, unrealizedPct, unrealizedUSD,
     invested, soldValue, change24h,
   } = entry
 
@@ -81,12 +81,12 @@ export default function CryptoCard({ entry, onClick, onReassign, onArchive, arch
         </div>
         {/* Row 3 */}
         <div className="stat">
-          <span className="stat-label">P&L</span>
+          <span className="stat-label">P&L total</span>
           <span className={`stat-value ${pnlClass}`}>{mv(fmt(profitabilityUSD))}</span>
         </div>
         <div className="stat">
-          <span className="stat-label">Rent. total</span>
-          <span className={`stat-value ${pnlClass}`}>{mv(fmtPct(profitability))}</span>
+          <span className="stat-label">P&L posición</span>
+          <span className={`stat-value ${unrealizedUSD >= 0 ? 'pos' : 'neg'}`}>{mv(fmt(unrealizedUSD))}</span>
         </div>
         <div className="stat">
           <span className="stat-label">vs Avg</span>

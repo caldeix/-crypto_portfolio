@@ -28,9 +28,10 @@ export const buildPortfolio = (transactions, prices) => {
     // Total return: (valor actual + lo ya vendido) / total invertido - 1
     const profitability = e.invested > 0 ? ((currentValue + e.soldValue) / e.invested) - 1 : 0
     const profitabilityUSD = currentValue + e.soldValue - e.invested
-    // Unrealized: precio actual vs precio medio de compra
+    // Unrealized: precio actual vs precio medio de compra (solo sobre lo que aún se tiene)
     const unrealizedPct = avgBuy > 0 && currentPrice > 0 ? (currentPrice - avgBuy) / avgBuy : null
-    return { ...e, currentPrice, currentValue, avgBuy, avgSell, profitability, profitabilityUSD, unrealizedPct, change24h: priceData.percent_change_24h || 0 }
+    const unrealizedUSD = avgBuy > 0 && currentPrice > 0 ? (currentPrice - avgBuy) * Math.max(e.amountHeld, 0) : 0
+    return { ...e, currentPrice, currentValue, avgBuy, avgSell, profitability, profitabilityUSD, unrealizedPct, unrealizedUSD, change24h: priceData.percent_change_24h || 0 }
   }).filter(e => e.invested > 0 || e.amountHeld > 0)
 }
 
