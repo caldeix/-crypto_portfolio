@@ -70,8 +70,9 @@ export function AppProvider({ children }) {
     if (!ids.length) return
     dispatch({ type: 'LOADING' })
     try {
-      const prices = await fetchPricesByCgId(ids, cgApiKey)
+      const { prices, meta } = await fetchPricesByCgId(ids, cgApiKey)
       dispatch({ type: 'SET_PRICES', payload: prices })
+      if (Object.keys(meta).length) dispatch({ type: 'SET_CG_META', payload: meta })
     } catch (e) {
       dispatch({ type: 'PRICE_ERROR', payload: e.message })
     }

@@ -22,15 +22,17 @@ export const searchCG = async (query) => {
 export const fetchPricesByCgId = async (cgIds, cgApiKey = '') => {
   if (!cgIds.length) return {}
   const json = await get(
-    `/simple/price?ids=${cgIds.join(',')}&vs_currencies=usd&include_24hr_change=true`,
+    `/coins/markets?vs_currency=usd&ids=${cgIds.join(',')}&per_page=250&sparkline=false`,
     cgApiKey,
   )
-  const result = {}
-  for (const [id, data] of Object.entries(json)) {
-    result[id] = {
-      price: data.usd || 0,
-      percent_change_24h: data.usd_24h_change || 0,
+  const prices = {}
+  const meta   = {}
+  for (const coin of json) {
+    prices[coin.id] = {
+      price: coin.current_price || 0,
+      percent_change_24h: coin.price_change_percentage_24h || 0,
     }
+    if (coin.image) meta[coin.id] = { thumb: coin.image }
   }
-  return result
+  return { prices, meta }
 }
