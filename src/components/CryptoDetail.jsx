@@ -198,7 +198,10 @@ export default function CryptoDetail({ entry, onClose }) {
     fetchCoinDetail(cgId, cgApiKey)
       .then(info => {
         setCoinInfo(info)
-        if (info?.homepage) saveCgMeta(cgId, { homepage: info.homepage })
+        const metaUpdate = {}
+        if (info?.homepage)         metaUpdate.homepage = info.homepage
+        if (info?.contractAddress)  metaUpdate.contractAddress = info.contractAddress
+        if (Object.keys(metaUpdate).length) saveCgMeta(cgId, metaUpdate)
       })
       .catch(() => setCoinInfo(null))
       .finally(() => setLoadingInfo(false))

@@ -50,6 +50,11 @@ export const fetchCoinDetail = async (cgId, cgApiKey = '') => {
     atlChange:  (md.atl_change_percentage?.usd ?? null) !== null ? md.atl_change_percentage.usd / 100 : null,
     description: stripHtml(json.description?.en),
     homepage:   (json.links?.homepage || [])[0] || null,
+    contractAddress: (() => {
+      const p = json.platforms || {}
+      // Prefer solana (HolderScan), then ethereum, then first available
+      return p['solana'] || p['ethereum'] || Object.values(p).find(v => v) || null
+    })(),
   }
 }
 
