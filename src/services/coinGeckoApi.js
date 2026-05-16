@@ -35,11 +35,13 @@ export const fetchCoinDetail = async (cgId, cgApiKey = '') => {
   const md = json.market_data || {}
   const stripHtml = (html = '') => html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
   return {
-    rank:       json.market_cap_rank,
-    marketCap:  md.market_cap?.usd,
-    volume24h:  md.total_volume?.usd,
-    high24h:    md.high_24h?.usd,
-    low24h:     md.low_24h?.usd,
+    rank:         json.market_cap_rank,
+    currentPrice: md.current_price?.usd || 0,
+    change24h:    md.price_change_percentage_24h ?? 0,
+    marketCap:    md.market_cap?.usd,
+    volume24h:    md.total_volume?.usd,
+    high24h:      md.high_24h?.usd,
+    low24h:       md.low_24h?.usd,
     change7d:   (md.price_change_percentage_7d ?? null) !== null ? md.price_change_percentage_7d / 100 : null,
     change30d:  (md.price_change_percentage_30d ?? null) !== null ? md.price_change_percentage_30d / 100 : null,
     ath:        md.ath?.usd,

@@ -201,7 +201,8 @@ export default function CryptoDetail({ entry, onClose }) {
       .finally(() => setLoadingInfo(false))
   }, [cgId, cgApiKey])
 
-  const change24hVal = change24h ?? 0
+  const displayPrice = currentPrice || coinInfo?.currentPrice || 0
+  const change24hVal = currentPrice ? (change24h ?? 0) : (coinInfo?.change24h ?? change24h ?? 0)
   const isUp = change24hVal >= 0
 
   const description = coinInfo?.description || ''
@@ -243,9 +244,9 @@ export default function CryptoDetail({ entry, onClose }) {
         </div>
 
         <div style={{ textAlign: 'right', flexShrink: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: '1rem' }}>{fmtPrice(currentPrice)}</div>
+          <div style={{ fontWeight: 700, fontSize: '1rem' }}>{displayPrice ? fmtPrice(displayPrice) : (loadingInfo ? '…' : '—')}</div>
           <div style={{ fontSize: '.75rem', color: isUp ? 'var(--success)' : 'var(--danger)' }}>
-            {isUp ? '+' : ''}{change24hVal.toFixed(2)}%
+            {displayPrice ? `${isUp ? '+' : ''}${change24hVal.toFixed(2)}%` : ''}
           </div>
         </div>
       </div>
@@ -335,8 +336,8 @@ export default function CryptoDetail({ entry, onClose }) {
           </div>
         </div>
 
-        {/* ── Portfolio position ── */}
-        <div className="detail-section">
+        {/* ── Portfolio position — ocultar si no hay posición ── */}
+        {entry.amountHeld > 0 && <div className="detail-section">
           <div className="detail-section-label">Tu posición</div>
           <div className="crypto-card-stats">
             <div className="stat">
@@ -368,7 +369,7 @@ export default function CryptoDetail({ entry, onClose }) {
               <div className="stat-value">{fmtPrice(entry.avgBuy)}</div>
             </div>
           </div>
-        </div>
+        </div>}
 
         {/* ── Description ── */}
         {coinInfo?.description && (
