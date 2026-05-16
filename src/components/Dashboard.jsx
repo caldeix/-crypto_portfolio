@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { buildPortfolio, buildTotals, fmt, fmtPct } from '../utils/calculations'
 import CryptoCard from './CryptoCard'
-import AddTransactionModal from './modals/AddTransactionModal'
 import SearchCryptoModal from './modals/SearchCryptoModal'
 
 const SORT_KEYS = [
@@ -23,9 +22,8 @@ const sortFn = (key) => {
   }
 }
 
-export default function Dashboard() {
+export default function Dashboard({ onOpenDetail }) {
   const { transactions, prices, reassignCgId, archivedSymbols, archiveSymbol, unarchiveSymbol, hideValues, toggleHideValues } = useApp()
-  const [showAddForCrypto, setShowAddForCrypto] = useState(null)
   const [reassignTarget, setReassignTarget] = useState(null)
   const [showArchived, setShowArchived] = useState(false)
   const [sortBy, setSortBy] = useState('value-desc')
@@ -43,6 +41,9 @@ export default function Dashboard() {
   const active    = useMemo(() => portfolio.filter(e => !archivedSymbols.includes(e.symbol)), [portfolio, archivedSymbols])
   const archived  = useMemo(() => portfolio.filter(e =>  archivedSymbols.includes(e.symbol)), [portfolio, archivedSymbols])
   const totals    = useMemo(() => buildTotals(active, transactions), [active, transactions])
+
+  const total24hUSD = active.reduce((s, e) => s + (e.currentValue * (e.change24h / 100)), 0)
+  const total24hPct = totals.totalCurrentValue > 0 ? total24hUSD / totals.totalCurrentValue : 0
 
   if (active.length === 0 && archived.length === 0) {
     return (
@@ -63,31 +64,35 @@ export default function Dashboard() {
       {/* Summary */}
       <div className="portfolio-summary">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div className="total-label">Valor total del portafolio</div>
+          <div className="total-value" style={{ margin: 0 }}>{mv(fmt(totals.totalCurrentValue))}</div>
           <button
             className="btn-icon"
-            style={{ fontSize: '1rem', opacity: 0.65, padding: '4px 6px' }}
+            style={{ fontSize: '1rem', opacity: 0.65, padding: '4px 6px', flexShrink: 0 }}
             title={hideValues ? 'Mostrar valores' : 'Ocultar valores'}
             onClick={toggleHideValues}
           >{hideValues ? '🙈' : '👁️'}</button>
         </div>
-        <div className="total-value">{mv(fmt(totals.totalCurrentValue))}</div>
-        <div className="pnl-row">
-          <div className={totals.totalPct >= 0 ? 'pnl-chip pos' : 'pnl-chip neg'}>
-            {mv(fmtPct(totals.totalPct))}
-          </div>
-          <div className={totals.totalPnL >= 0 ? 'pnl-chip pos' : 'pnl-chip neg'}>
-            {mv(fmt(totals.totalPnL))}
-          </div>
-          <div className="pnl-chip neu" style={{ fontSize: '.76rem' }}>
-            Invertido {mv(fmt(totals.totalNetInvested))}
+
+        <div style={{ fontSize: '.82rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+          Invertido {mv(fmt(totals.totalNetInvested))}
+        </div>
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
+          {totals.totalCurrentValue > 0 && (
+            <div className={`pnl-chip ${total24hUSD >= 0 ? 'pos' : 'neg'}`} style={{ fontSize: '.74rem' }}>
+              Hoy {mv(`${total24hUSD >= 0 ? '+' : ''}${fmt(total24hUSD)}`)} ({mv(fmtPct(total24hPct))})
+            </div>
+          )}
+          <div className={totals.totalPnL >= 0 ? 'pnl-chip pos' : 'pnl-chip neg'} style={{ fontSize: '.74rem' }}>
+            Total {mv(`${totals.totalPnL >= 0 ? '+' : ''}${fmt(totals.totalPnL)}`)} ({mv(fmtPct(totals.totalPct))})
           </div>
         </div>
+
         {totals.totalLiquidez !== 0 && (
-          <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
+          <div style={{ marginTop: '6px' }}>
             <div
               className={totals.totalLiquidez >= 0 ? 'pnl-chip pos' : 'pnl-chip neg'}
-              style={{ fontSize: '.74rem', cursor: 'pointer', userSelect: 'none', opacity: hiddenChips.has('LIQUIDEZ') && !hideValues ? 0.6 : 1 }}
+              style={{ fontSize: '.74rem', cursor: 'pointer', userSelect: 'none', opacity: hiddenChips.has('LIQUIDEZ') && !hideValues ? 0.6 : 1, display: 'inline-flex' }}
               title={`Pulsa para ${hiddenChips.has('LIQUIDEZ') ? 'mostrar' : 'ocultar'} — Saldo de caja disponible`}
               onClick={() => toggleChip('LIQUIDEZ')}
             >
@@ -121,7 +126,7 @@ export default function Dashboard() {
           <CryptoCard
             key={entry.cgId || entry.symbol}
             entry={entry}
-            onClick={() => setShowAddForCrypto({ cryptoId: entry.cryptoId, cgId: entry.cgId, symbol: entry.symbol, name: entry.name })}
+            onClick={() => onOpenDetail && onOpenDetail(entry)}
             onReassign={() => setReassignTarget({ symbol: entry.symbol })}
             onArchive={() => archiveSymbol(entry.symbol)}
           />
@@ -145,7 +150,7 @@ export default function Dashboard() {
                 <CryptoCard
                   key={entry.cgId || entry.symbol}
                   entry={entry}
-                  onClick={() => setShowAddForCrypto({ cryptoId: entry.cryptoId, cgId: entry.cgId, symbol: entry.symbol, name: entry.name })}
+                  onClick={() => onOpenDetail && onOpenDetail(entry)}
                   onReassign={() => setReassignTarget({ symbol: entry.symbol })}
                   onArchive={() => unarchiveSymbol(entry.symbol)}
                   archived
@@ -156,16 +161,10 @@ export default function Dashboard() {
         </div>
       )}
 
-      {showAddForCrypto && (
-        <AddTransactionModal
-          prefill={showAddForCrypto}
-          onClose={() => setShowAddForCrypto(null)}
-        />
-      )}
       {reassignTarget && (
         <SearchCryptoModal
           onSelect={crypto => {
-            reassignCgId(reassignTarget.symbol, crypto.cgId, crypto.name)
+            reassignCgId(reassignTarget.symbol, crypto.cgId, crypto.name, crypto.thumb)
             setReassignTarget(null)
           }}
           onClose={() => setReassignTarget(null)}
