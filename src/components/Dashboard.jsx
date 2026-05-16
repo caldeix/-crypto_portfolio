@@ -163,7 +163,7 @@ export default function Dashboard() {
       {reassignTarget && (
         <SearchCryptoModal
           onSelect={crypto => {
-            reassignCgId(reassignTarget.symbol, crypto.cgId, crypto.name)
+            reassignCgId(reassignTarget.symbol, crypto.cgId, crypto.name, crypto.thumb)
             setReassignTarget(null)
           }}
           onClose={() => setReassignTarget(null)}

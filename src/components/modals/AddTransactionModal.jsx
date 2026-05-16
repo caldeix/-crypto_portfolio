@@ -19,7 +19,7 @@ const emptyForm = (prefill) => ({
 })
 
 export default function AddTransactionModal({ onClose, prefill, editTx, onDelete }) {
-  const { allCategories, addTransaction, editTransaction, transactions } = useApp()
+  const { allCategories, addTransaction, editTransaction, transactions, saveCgMeta } = useApp()
   const isEdit = !!editTx
 
   const [form, setForm] = useState(isEdit ? { ...editTx, date: editTx.date.slice(0, 16) } : emptyForm(prefill))
@@ -127,6 +127,7 @@ export default function AddTransactionModal({ onClose, prefill, editTx, onDelete
       <SearchCryptoModal
         onSelect={(crypto) => {
           setForm(f => ({ ...f, cgId: crypto.cgId, symbol: crypto.symbol, name: crypto.name, cryptoId: null }))
+          if (crypto.thumb) saveCgMeta(crypto.cgId, { thumb: crypto.thumb })
           setShowSearch(false)
         }}
         onClose={() => { if (!form.symbol) onClose(); else setShowSearch(false) }}

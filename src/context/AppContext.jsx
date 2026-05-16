@@ -10,6 +10,7 @@ const initialState = {
   customCategories: load('categories', []),
   transactions: load('transactions', []),
   archivedSymbols: load('archived', []),
+  cgMeta: load('cgMeta', {}),
   prices: {},
   lastUpdated: null,
   isLoading: false,
@@ -30,7 +31,8 @@ function reducer(state, action) {
     case 'SET_PRICES':      return { ...state, prices: { ...state.prices, ...action.payload }, lastUpdated: Date.now(), isLoading: false, priceError: null }
     case 'LOADING':         return { ...state, isLoading: true, priceError: null }
     case 'PRICE_ERROR':     return { ...state, isLoading: false, priceError: action.payload }
-    case 'IMPORT':          return { ...state, ...action.payload, prices: {}, archivedSymbols: action.payload.archivedSymbols || [] }
+    case 'SET_CG_META':     return { ...state, cgMeta: { ...state.cgMeta, ...action.payload } }
+    case 'IMPORT':          return { ...state, ...action.payload, prices: {}, archivedSymbols: action.payload.archivedSymbols || [], cgMeta: action.payload.cgMeta || state.cgMeta }
     default:                return state
   }
 }
@@ -85,6 +87,7 @@ export function AppProvider({ children }) {
   useEffect(() => { save('categories', state.customCategories) }, [state.customCategories])
   useEffect(() => { save('transactions', state.transactions) }, [state.transactions])
   useEffect(() => { save('archived', state.archivedSymbols) }, [state.archivedSymbols])
+  useEffect(() => { save('cgMeta', state.cgMeta) }, [state.cgMeta])
 
   const setCgApiKey = (raw) => dispatch({ type: 'SET_CG_KEY', payload: raw ? encodeKey(raw) : '' })
 
@@ -120,10 +123,16 @@ export function AppProvider({ children }) {
   const unarchiveSymbol = (symbol) =>
     dispatch({ type: 'SET_ARCHIVED', payload: state.archivedSymbols.filter(s => s !== symbol) })
 
-  const reassignCgId = (symbol, newCgId, newName) => {
+  const saveCgMeta = (cgId, meta) => {
+    if (!cgId) return
+    dispatch({ type: 'SET_CG_META', payload: { [cgId]: meta } })
+  }
+
+  const reassignCgId = (symbol, newCgId, newName, thumb) => {
     state.transactions
       .filter(tx => tx.symbol === symbol)
       .forEach(tx => dispatch({ type: 'EDIT_TX', payload: { ...tx, cgId: newCgId, name: newName } }))
+    if (thumb) saveCgMeta(newCgId, { thumb })
   }
 
   const exportData = (includeKey = false) => {
@@ -151,6 +160,7 @@ export function AppProvider({ children }) {
       setCgApiKey,
       addCategory, renameCategory, deleteCategory,
       addTransaction, editTransaction, deleteTransaction, reassignCgId,
+      cgMeta: state.cgMeta, saveCgMeta,
       archivedSymbols: state.archivedSymbols, archiveSymbol, unarchiveSymbol,
       hideValues: state.hideValues, toggleHideValues,
       refreshPrices, exportData, importData,
