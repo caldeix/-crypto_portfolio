@@ -412,16 +412,18 @@ label { font-size: .8rem; color: var(--text-muted); display: block; margin-botto
 
 .stat-bar-legend {
   display: flex;
-  justify-content: space-between;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 4px 0;
 }
 .stat-legend-item {
   display: flex;
   align-items: center;
   gap: 5px;
   font-size: .78rem;
+  white-space: nowrap;
 }
-.stat-legend-right { justify-content: flex-end; }
+.stat-legend-left  { margin-right: auto; }
+.stat-legend-right { margin-left: auto; }
 
 .stat-legend-dot {
   width: 8px; height: 8px;
