@@ -399,6 +399,7 @@ label { font-size: .8rem; color: var(--text-muted); display: block; margin-botto
   margin-bottom: 10px;
   text-transform: uppercase;
   letter-spacing: .04em;
+  padding-left: 13px;
 }
 .stat-bar {
   display: flex;
