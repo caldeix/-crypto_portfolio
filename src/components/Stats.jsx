@@ -90,12 +90,21 @@ function calcCustomBar(config, portfolio) {
 
 function CustomBarEditor({ portfolio, onConfirm, onClose }) {
   const options = portfolio.map(e => ({ cgId: e.cgId, symbol: e.symbol }))
-  const [leftCgId,  setLeftCgId]  = useState(options[0]?.cgId || '')
+  const [leftCgIds, setLeftCgIds] = useState([options[0]?.cgId || ''].filter(Boolean))
   const [rightCgId, setRightCgId] = useState('REST')
+
+  const toggleLeft = (cgId) => {
+    setLeftCgIds(prev => {
+      const next = prev.includes(cgId) ? prev.filter(id => id !== cgId) : [...prev, cgId]
+      // reset right if it's now selected on the left
+      if (next.includes(rightCgId)) setRightCgId('REST')
+      return next
+    })
+  }
 
   const rightOptions = [
     { cgId: 'REST', symbol: 'Resto (todo lo demás)' },
-    ...options.filter(o => o.cgId !== leftCgId),
+    ...options.filter(o => !leftCgIds.includes(o.cgId)),
   ]
 
   return (
@@ -107,15 +116,20 @@ function CustomBarEditor({ portfolio, onConfirm, onClose }) {
         </div>
 
         <div className="form-group">
-          <label>Lado izquierdo</label>
-          <select value={leftCgId} onChange={e => {
-            setLeftCgId(e.target.value)
-            if (rightCgId === e.target.value) setRightCgId('REST')
-          }}>
+          <label>Lado izquierdo (selección múltiple)</label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '180px', overflowY: 'auto', padding: '4px 0' }}>
             {options.map(o => (
-              <option key={o.cgId} value={o.cgId}>{o.symbol}</option>
+              <label key={o.cgId} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', padding: '8px 10px', borderRadius: 'var(--radius-sm)', background: leftCgIds.includes(o.cgId) ? 'var(--primary-dim)' : 'var(--card)', border: `1px solid ${leftCgIds.includes(o.cgId) ? 'var(--primary)' : 'var(--border)'}`, marginBottom: 0 }}>
+                <input
+                  type="checkbox"
+                  checked={leftCgIds.includes(o.cgId)}
+                  onChange={() => toggleLeft(o.cgId)}
+                  style={{ width: 'auto', accentColor: 'var(--primary)' }}
+                />
+                <span style={{ fontWeight: 600, fontSize: '.9rem' }}>{o.symbol}</span>
+              </label>
             ))}
-          </select>
+          </div>
         </div>
 
         <div className="form-group">
@@ -129,9 +143,11 @@ function CustomBarEditor({ portfolio, onConfirm, onClose }) {
 
         <div className="modal-actions">
           <button className="btn btn-ghost" onClick={onClose}>Cancelar</button>
-          <button className="btn btn-primary" onClick={() => {
-            if (leftCgId) { onConfirm({ leftCgIds: [leftCgId], rightCgIds: [rightCgId] }) }
-          }}>
+          <button
+            className="btn btn-primary"
+            disabled={leftCgIds.length === 0}
+            onClick={() => { if (leftCgIds.length > 0) onConfirm({ leftCgIds, rightCgIds: [rightCgId] }) }}
+          >
             Añadir
           </button>
         </div>
@@ -140,9 +156,40 @@ function CustomBarEditor({ portfolio, onConfirm, onClose }) {
   )
 }
 
+function FilterPanel({ items, hidden, onToggle, onClose }) {
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal">
+        <div className="modal-header">
+          <span className="modal-title">Mostrar / Ocultar estadísticas</span>
+          <button className="btn-icon" onClick={onClose}>✕</button>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          {items.map(item => (
+            <label key={item.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', padding: '10px 12px', borderRadius: 'var(--radius-sm)', background: 'var(--card)', border: '1px solid var(--border)', marginBottom: 0 }}>
+              <input
+                type="checkbox"
+                checked={!hidden.has(item.id)}
+                onChange={() => onToggle(item.id)}
+                style={{ width: 'auto', accentColor: 'var(--primary)' }}
+              />
+              <span style={{ fontSize: '.9rem' }}>{item.label}</span>
+            </label>
+          ))}
+        </div>
+        <div className="modal-actions">
+          <button className="btn btn-primary" onClick={onClose}>Listo</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function Stats() {
   const { transactions, prices, archivedSymbols, hideValues, customBars, addCustomBar, deleteCustomBar } = useApp()
-  const [showEditor, setShowEditor] = useState(false)
+  const [showEditor, setShowEditor]   = useState(false)
+  const [showFilter, setShowFilter]   = useState(false)
+  const [hiddenStats, setHiddenStats] = useState(new Set())
 
   const portfolio = useMemo(() => buildPortfolio(transactions, prices), [transactions, prices])
   const active    = useMemo(() => portfolio.filter(e => !archivedSymbols.includes(e.symbol)), [portfolio, archivedSymbols])
@@ -150,6 +197,21 @@ export default function Stats() {
 
   const { totalCurrentValue, totalNetInvested, totalLiquidez } = totals
   const hasData = totalNetInvested > 0 || totalCurrentValue > 0 || totalLiquidez !== 0
+
+  const toggleHidden = (id) => setHiddenStats(prev => {
+    const next = new Set(prev)
+    next.has(id) ? next.delete(id) : next.add(id)
+    return next
+  })
+
+  const filterItems = [
+    ...(totalLiquidez !== 0 ? [{ id: 'distribucion', label: 'Distribución de capital' }] : []),
+    ...(totalNetInvested > 0 ? [{ id: 'rendimiento', label: 'Rendimiento' }] : []),
+    ...customBars.map(bar => {
+      const calc = calcCustomBar(bar, active)
+      return { id: bar.id, label: `${calc.leftLabel} vs ${calc.rightLabel}` }
+    }),
+  ]
 
   if (!hasData) {
     return (
@@ -168,12 +230,24 @@ export default function Stats() {
 
   return (
     <div className="main-content">
-      <div className="stats-header">
+      <div className="stats-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div className="stats-title">Estadísticas</div>
+        {filterItems.length > 0 && (
+          <button
+            className="btn btn-ghost btn-sm"
+            style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '.75rem' }}
+            onClick={() => setShowFilter(true)}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 14, height: 14 }}>
+              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+            </svg>
+            Filtrar
+          </button>
+        )}
       </div>
       <div className="stats-list">
 
-        {totalLiquidez !== 0 && (() => {
+        {totalLiquidez !== 0 && !hiddenStats.has('distribucion') && (() => {
           const total = totalCurrentValue + totalLiquidez
           return (
             <StatBar
@@ -185,7 +259,7 @@ export default function Stats() {
           )
         })()}
 
-        {totalNetInvested > 0 && (
+        {totalNetInvested > 0 && !hiddenStats.has('rendimiento') && (
           <PerfBar
             label="Rendimiento"
             invested={totalNetInvested}
@@ -197,6 +271,7 @@ export default function Stats() {
         )}
 
         {customBars.map(bar => {
+          if (hiddenStats.has(bar.id)) return null
           const calc = calcCustomBar(bar, active)
           return (
             <StatBar
@@ -227,6 +302,15 @@ export default function Stats() {
           portfolio={active}
           onConfirm={(bar) => { addCustomBar(bar); setShowEditor(false) }}
           onClose={() => setShowEditor(false)}
+        />
+      )}
+
+      {showFilter && (
+        <FilterPanel
+          items={filterItems}
+          hidden={hiddenStats}
+          onToggle={toggleHidden}
+          onClose={() => setShowFilter(false)}
         />
       )}
     </div>
