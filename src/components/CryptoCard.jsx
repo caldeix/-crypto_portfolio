@@ -1,13 +1,6 @@
 import { fmt, fmtPrice, fmtPct, fmtAmount } from '../utils/calculations'
 import { useApp } from '../context/AppContext'
 
-const IconGlobe = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ width: 15, height: 15 }}>
-    <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/>
-    <path d="M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/>
-  </svg>
-)
-
 
 export default function CryptoCard({ entry, onClick, onReassign, onArchive, archived }) {
   const { hideValues, cgMeta } = useApp()
@@ -25,11 +18,6 @@ export default function CryptoCard({ entry, onClick, onReassign, onArchive, arch
 
   const pnlClass = profitabilityUSD >= 0 ? 'pos' : 'neg'
   const c24Class = change24h >= 0 ? 'pos' : 'neg'
-
-  const webHref    = meta?.homepage || null
-  const holderHref = contractAddress
-    ? `https://www.holderscan.com/token/${contractAddress}`
-    : null
 
   return (
     <div className="crypto-card" onClick={onClick}>
@@ -109,34 +97,8 @@ export default function CryptoCard({ entry, onClick, onReassign, onArchive, arch
             {unrealizedPct === null ? '—' : mv(fmtPct(unrealizedPct))}
           </span>
         </div>
-        {/* Row 4 — links col1 col2, RENT col3 */}
-        <div style={{ display: 'flex', alignItems: 'center' }}>
-          {webHref && (
-            <a
-              href={webHref} target="_blank" rel="noopener noreferrer"
-              onClick={e => e.stopPropagation()}
-              style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-muted)', fontSize: '.72rem', textDecoration: 'none' }}
-              title="Web oficial"
-            >
-              <IconGlobe /> Web
-            </a>
-          )}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center' }}>
-          {holderHref ? (
-            <a
-              href={holderHref} target="_blank" rel="noopener noreferrer"
-              onClick={e => e.stopPropagation()}
-              style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#7C3AED', fontSize: '.72rem', textDecoration: 'none' }}
-              title="HolderScan"
-            >
-              👥 Holders
-            </a>
-          ) : (
-            <span style={{ fontSize: '.65rem', color: 'var(--text-dim)' }} title="Abre el detalle para cargar el contrato">—</span>
-          )}
-        </div>
-        <div className="stat">
+        {/* Row 4 — Rent col3 only */}
+        <div className="stat" style={{ gridColumn: 3 }}>
           <span className="stat-label">Rent.</span>
           <span className={`stat-value ${pnlClass}`}>{mv(fmtPct(profitability))}</span>
         </div>
