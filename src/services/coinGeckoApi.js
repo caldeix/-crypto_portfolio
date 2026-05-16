@@ -19,6 +19,38 @@ export const searchCG = async (query) => {
   }))
 }
 
+export const fetchMarketChart = async (cgId, days, cgApiKey = '') => {
+  const json = await get(
+    `/coins/${cgId}/market_chart?vs_currency=usd&days=${days}`,
+    cgApiKey,
+  )
+  return json.prices // [[timestamp, price], ...]
+}
+
+export const fetchCoinDetail = async (cgId, cgApiKey = '') => {
+  const json = await get(
+    `/coins/${cgId}?localization=false&tickers=false&market_data=true&community_data=false&developer_data=false`,
+    cgApiKey,
+  )
+  const md = json.market_data || {}
+  const stripHtml = (html = '') => html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
+  return {
+    rank:       json.market_cap_rank,
+    marketCap:  md.market_cap?.usd,
+    volume24h:  md.total_volume?.usd,
+    high24h:    md.high_24h?.usd,
+    low24h:     md.low_24h?.usd,
+    change7d:   (md.price_change_percentage_7d ?? null) !== null ? md.price_change_percentage_7d / 100 : null,
+    change30d:  (md.price_change_percentage_30d ?? null) !== null ? md.price_change_percentage_30d / 100 : null,
+    ath:        md.ath?.usd,
+    athChange:  (md.ath_change_percentage?.usd ?? null) !== null ? md.ath_change_percentage.usd / 100 : null,
+    atl:        md.atl?.usd,
+    atlChange:  (md.atl_change_percentage?.usd ?? null) !== null ? md.atl_change_percentage.usd / 100 : null,
+    description: stripHtml(json.description?.en),
+    homepage:   (json.links?.homepage || [])[0] || null,
+  }
+}
+
 export const fetchPricesByCgId = async (cgIds, cgApiKey = '') => {
   if (!cgIds.length) return {}
   const json = await get(

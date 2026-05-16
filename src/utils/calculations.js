@@ -91,6 +91,14 @@ export const fmtPrice = (price) => {
 
 export const fmtPct = (n) => `${n >= 0 ? '+' : ''}${(n * 100).toFixed(2)}%`
 
+export const fmtCompact = (n) => {
+  if (!n || n === 0) return '$0'
+  if (n >= 1e12) return `$${(n / 1e12).toFixed(2)}T`
+  if (n >= 1e9)  return `$${(n / 1e9).toFixed(2)}B`
+  if (n >= 1e6)  return `$${(n / 1e6).toFixed(2)}M`
+  return fmt(n)
+}
+
 export const fmtAmount = (n) => Math.abs(n) >= 1 ? n.toFixed(4) : n.toFixed(8)
 
 export const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2)

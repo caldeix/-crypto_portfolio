@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { buildPortfolio, buildTotals, fmt, fmtPct } from '../utils/calculations'
 import CryptoCard from './CryptoCard'
-import AddTransactionModal from './modals/AddTransactionModal'
 import SearchCryptoModal from './modals/SearchCryptoModal'
 
 const SORT_KEYS = [
@@ -23,9 +22,8 @@ const sortFn = (key) => {
   }
 }
 
-export default function Dashboard() {
+export default function Dashboard({ onOpenDetail }) {
   const { transactions, prices, reassignCgId, archivedSymbols, archiveSymbol, unarchiveSymbol, hideValues, toggleHideValues } = useApp()
-  const [showAddForCrypto, setShowAddForCrypto] = useState(null)
   const [reassignTarget, setReassignTarget] = useState(null)
   const [showArchived, setShowArchived] = useState(false)
   const [sortBy, setSortBy] = useState('value-desc')
@@ -43,6 +41,9 @@ export default function Dashboard() {
   const active    = useMemo(() => portfolio.filter(e => !archivedSymbols.includes(e.symbol)), [portfolio, archivedSymbols])
   const archived  = useMemo(() => portfolio.filter(e =>  archivedSymbols.includes(e.symbol)), [portfolio, archivedSymbols])
   const totals    = useMemo(() => buildTotals(active, transactions), [active, transactions])
+
+  const total24hUSD = active.reduce((s, e) => s + (e.currentValue * (e.change24h / 100)), 0)
+  const total24hPct = totals.totalCurrentValue > 0 ? total24hUSD / totals.totalCurrentValue : 0
 
   if (active.length === 0 && archived.length === 0) {
     return (
@@ -79,6 +80,11 @@ export default function Dashboard() {
           <div className={totals.totalPnL >= 0 ? 'pnl-chip pos' : 'pnl-chip neg'}>
             {mv(fmt(totals.totalPnL))}
           </div>
+          {totals.totalCurrentValue > 0 && (
+            <div className={`pnl-chip ${total24hUSD >= 0 ? 'pos' : 'neg'}`} style={{ fontSize: '.74rem' }}>
+              Hoy {mv(`${total24hUSD >= 0 ? '+' : ''}${fmt(total24hUSD)}`)} ({mv(fmtPct(total24hPct))})
+            </div>
+          )}
           <div className="pnl-chip neu" style={{ fontSize: '.76rem' }}>
             Invertido {mv(fmt(totals.totalNetInvested))}
           </div>
@@ -119,7 +125,7 @@ export default function Dashboard() {
           <CryptoCard
             key={entry.cgId || entry.symbol}
             entry={entry}
-            onClick={() => setShowAddForCrypto({ cryptoId: entry.cryptoId, cgId: entry.cgId, symbol: entry.symbol, name: entry.name })}
+            onClick={() => onOpenDetail && onOpenDetail(entry)}
             onReassign={() => setReassignTarget({ symbol: entry.symbol })}
             onArchive={() => archiveSymbol(entry.symbol)}
           />
@@ -143,7 +149,7 @@ export default function Dashboard() {
                 <CryptoCard
                   key={entry.cgId || entry.symbol}
                   entry={entry}
-                  onClick={() => setShowAddForCrypto({ cryptoId: entry.cryptoId, cgId: entry.cgId, symbol: entry.symbol, name: entry.name })}
+                  onClick={() => onOpenDetail && onOpenDetail(entry)}
                   onReassign={() => setReassignTarget({ symbol: entry.symbol })}
                   onArchive={() => unarchiveSymbol(entry.symbol)}
                   archived
@@ -154,12 +160,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {showAddForCrypto && (
-        <AddTransactionModal
-          prefill={showAddForCrypto}
-          onClose={() => setShowAddForCrypto(null)}
-        />
-      )}
       {reassignTarget && (
         <SearchCryptoModal
           onSelect={crypto => {

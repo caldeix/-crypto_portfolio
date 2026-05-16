@@ -1,8 +1,9 @@
-import { useState, useCallback } from 'react'
+import { useState } from 'react'
 import StatusBanner from './components/StatusBanner'
 import Dashboard from './components/Dashboard'
 import TransactionHistory from './components/TransactionHistory'
 import Stats from './components/Stats'
+import CryptoDetail from './components/CryptoDetail'
 import AddTransactionModal from './components/modals/AddTransactionModal'
 import ConfigModal from './components/modals/ConfigModal'
 
@@ -41,13 +42,18 @@ export default function App() {
   const [tab, setTab] = useState('home')
   const [showAdd, setShowAdd] = useState(false)
   const [showConfig, setShowConfig] = useState(false)
+  const [detailEntry, setDetailEntry] = useState(null)
+
+  if (detailEntry) {
+    return <CryptoDetail entry={detailEntry} onClose={() => setDetailEntry(null)} />
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100dvh' }}>
       <StatusBanner />
 
       <main style={{ flex: 1 }}>
-        {tab === 'home'    && <Dashboard />}
+        {tab === 'home'    && <Dashboard onOpenDetail={setDetailEntry} />}
         {tab === 'stats'   && <Stats />}
         {tab === 'history' && <TransactionHistory />}
       </main>
