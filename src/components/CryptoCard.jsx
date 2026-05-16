@@ -8,16 +8,19 @@ const IconGlobe = () => (
   </svg>
 )
 
-const IconDex = () => (
+const IconHolder = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ width: 15, height: 15 }}>
-    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+    <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+    <circle cx="9" cy="7" r="4"/>
+    <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
   </svg>
 )
 
 export default function CryptoCard({ entry, onClick, onReassign, onArchive, archived }) {
   const { hideValues, cgMeta } = useApp()
-  const meta  = entry.cgId ? cgMeta[entry.cgId] : null
-  const thumb = meta?.thumb
+  const meta            = entry.cgId ? cgMeta[entry.cgId] : null
+  const thumb           = meta?.thumb
+  const contractAddress = meta?.contractAddress
   const mv = (v) => hideValues ? '••••' : v
   const {
     symbol, name, cgId, amountHeld,
@@ -30,9 +33,11 @@ export default function CryptoCard({ entry, onClick, onReassign, onArchive, arch
   const pnlClass = profitabilityUSD >= 0 ? 'pos' : 'neg'
   const c24Class = change24h >= 0 ? 'pos' : 'neg'
 
-  const webHref = meta?.homepage
+  const webHref    = meta?.homepage
     || (cgId ? `https://www.coingecko.com/en/coins/${cgId}` : null)
-  const dexHref = `https://dexscreener.com/search?q=${encodeURIComponent(symbol)}`
+  const holderHref = contractAddress
+    ? `https://www.holderscan.com/token/${contractAddress}`
+    : null
 
   return (
     <div className="crypto-card" onClick={onClick}>
@@ -126,14 +131,18 @@ export default function CryptoCard({ entry, onClick, onReassign, onArchive, arch
           )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center' }}>
-          <a
-            href={dexHref} target="_blank" rel="noopener noreferrer"
-            onClick={e => e.stopPropagation()}
-            style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#00b386', fontSize: '.72rem', textDecoration: 'none' }}
-            title="DexScreener"
-          >
-            <IconDex /> Dex
-          </a>
+          {holderHref ? (
+            <a
+              href={holderHref} target="_blank" rel="noopener noreferrer"
+              onClick={e => e.stopPropagation()}
+              style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#7C3AED', fontSize: '.72rem', textDecoration: 'none' }}
+              title="HolderScan"
+            >
+              <IconHolder /> Holders
+            </a>
+          ) : (
+            <span style={{ fontSize: '.65rem', color: 'var(--text-dim)' }} title="Abre el detalle para cargar el contrato">—</span>
+          )}
         </div>
         <div className="stat">
           <span className="stat-label">Rent.</span>
