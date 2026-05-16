@@ -61,33 +61,11 @@ export const buildTotals = (portfolio, allTransactions = []) => {
   const totalSold = portfolio.reduce((s, e) => s + e.soldValue, 0)
   const totalNetInvested = totalInvested - totalSold
 
-  const firstLiquidezDate = allTransactions
-    .filter(t => t.category === 'LIQUIDEZ')
-    .reduce((min, t) => (!min || t.date < min ? t.date : min), null)
-
-  let totalLiquidezDeposits = 0
-  let preLiquidezBuys = 0
-  let preLiquidezSells = 0
-
-  for (const t of allTransactions) {
-    if (t.category !== 'BUY' && t.category !== 'SELL' && t.totalUSD > 0) {
-      totalLiquidezDeposits += t.totalUSD
-    }
-    if (firstLiquidezDate && t.date < firstLiquidezDate) {
-      if (t.category === 'BUY') preLiquidezBuys += t.totalUSD
-      if (t.category === 'SELL') preLiquidezSells += t.totalUSD
-    }
-  }
-
   const { liquidez: totalLiquidez } = computeLiquidez(allTransactions)
   const totalPnL = totalCurrentValue + totalSold - totalInvested
+  const totalPct = totalNetInvested > 0 ? totalPnL / totalNetInvested : 0
 
-  const base = firstLiquidezDate
-    ? totalLiquidezDeposits + Math.max(preLiquidezBuys - preLiquidezSells, 0)
-    : totalInvested
-  const totalPct = base > 0 ? totalPnL / base : 0
-
-  return { totalInvested, totalNetInvested, totalCurrentValue, totalSold, totalPnL, totalPct, totalLiquidez, totalLiquidezDeposits }
+  return { totalInvested, totalNetInvested, totalCurrentValue, totalSold, totalPnL, totalPct, totalLiquidez }
 }
 
 export const fmt = (n, decimals = 2) =>
