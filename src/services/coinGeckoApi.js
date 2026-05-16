@@ -1,11 +1,17 @@
 const BASE = 'https://api.coingecko.com/api/v3'
 
-const get = async (path, cgApiKey = '') => {
+const get = async (path, cgApiKey = '', timeoutMs = 12000) => {
   const headers = { Accept: 'application/json' }
   if (cgApiKey) headers['x-cg-demo-api-key'] = cgApiKey
-  const res = await fetch(`${BASE}${path}`, { headers })
-  if (!res.ok) throw new Error(`CoinGecko ${res.status}`)
-  return res.json()
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs)
+  try {
+    const res = await fetch(`${BASE}${path}`, { headers, signal: ctrl.signal })
+    if (!res.ok) throw new Error(`CoinGecko ${res.status}`)
+    return res.json()
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 export const searchCG = async (query) => {

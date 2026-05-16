@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react' // useRef used by PriceChart
 import { fetchMarketChart, fetchCoinDetail } from '../services/coinGeckoApi'
 import { fmt, fmtPrice, fmtPct, fmtCompact } from '../utils/calculations'
 import { useApp } from '../context/AppContext'
@@ -169,9 +169,10 @@ const RANGES = [
 export default function CryptoDetail({ entry, onClose }) {
   const { cgApiKey, cgMeta, saveCgMeta } = useApp()
 
-  const [range, setRange]           = useState(7)
-  const [chartData, setChartData]   = useState(null)
-  const [coinInfo, setCoinInfo]      = useState(null)
+  const [range, setRange]               = useState(7)
+  const [chartData, setChartData]       = useState(null)
+  const [coinInfo, setCoinInfo]         = useState(null)
+  const [infoError, setInfoError]       = useState(false)
   const [loadingChart, setLoadingChart] = useState(true)
   const [loadingInfo, setLoadingInfo]   = useState(true)
   const [showFullDesc, setShowFullDesc] = useState(false)
@@ -192,25 +193,45 @@ export default function CryptoDetail({ entry, onClose }) {
       .finally(() => setLoadingChart(false))
   }, [cgId, range, cgApiKey])
 
-  // Load coin detail once
-  useEffect(() => {
+  // Load coin detail — with one automatic retry after 3 s on failure
+  const loadInfo = useCallback(() => {
     if (!cgId) return
     setLoadingInfo(true)
-    fetchCoinDetail(cgId, cgApiKey)
-      .then(info => {
+    setInfoError(false)
+    let cancelled = false
+    const run = async (attempt = 0) => {
+      try {
+        const info = await fetchCoinDetail(cgId, cgApiKey)
+        if (cancelled) return
         setCoinInfo(info)
-        const metaUpdate = {}
-        if (info?.homepage)         metaUpdate.homepage = info.homepage
-        if (info?.contractAddress)  metaUpdate.contractAddress = info.contractAddress
-        if (Object.keys(metaUpdate).length) saveCgMeta(cgId, metaUpdate)
-      })
-      .catch(() => setCoinInfo(null))
-      .finally(() => setLoadingInfo(false))
-  }, [cgId, cgApiKey])
+        const patch = {}
+        if (info?.homepage)        patch.homepage        = info.homepage
+        if (info?.contractAddress) patch.contractAddress = info.contractAddress
+        if (Object.keys(patch).length) saveCgMeta(cgId, patch)
+      } catch {
+        if (cancelled) return
+        if (attempt < 1) {
+          await new Promise(r => setTimeout(r, 3000))
+          return run(attempt + 1)
+        }
+        setInfoError(true)
+      } finally {
+        if (!cancelled) setLoadingInfo(false)
+      }
+    }
+    run()
+    return () => { cancelled = true }
+  }, [cgId, cgApiKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => loadInfo(), [cgId, cgApiKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const displayPrice = currentPrice || coinInfo?.currentPrice || 0
   const change24hVal = currentPrice ? (change24h ?? 0) : (coinInfo?.change24h ?? change24h ?? 0)
   const isUp = change24hVal >= 0
+
+  // Use cgMeta as immediate source (populated by background fetch); coinInfo overrides once loaded
+  const homepage        = coinInfo?.homepage        || cgMeta[cgId]?.homepage        || null
+  const contractAddress = coinInfo?.contractAddress || cgMeta[cgId]?.contractAddress || null
 
   const description = coinInfo?.description || ''
   const descTruncated = description.length > 280
@@ -336,8 +357,13 @@ export default function CryptoDetail({ entry, onClose }) {
                 </div>
               </>
             ) : (
-              <div style={{ gridColumn: '1 / -1', color: 'var(--text-dim)', fontSize: '.82rem' }}>
-                No se pudo cargar la información
+              <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ color: 'var(--text-dim)', fontSize: '.82rem' }}>No se pudo cargar</span>
+                <button
+                  className="btn btn-ghost"
+                  style={{ fontSize: '.78rem', padding: '4px 10px' }}
+                  onClick={loadInfo}
+                >Reintentar</button>
               </div>
             )}
           </div>
@@ -379,24 +405,24 @@ export default function CryptoDetail({ entry, onClose }) {
         </div>}
 
         {/* ── Info: web + contract ── */}
-        {(coinInfo?.homepage || coinInfo?.contractAddress) && (
+        {(homepage || contractAddress) && (
           <div className="detail-section">
             <div className="detail-section-label">Info</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {coinInfo.homepage && (
+              {homepage && (
                 <a
-                  href={coinInfo.homepage}
+                  href={homepage}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{ color: 'var(--primary)', fontSize: '.85rem', textDecoration: 'none', wordBreak: 'break-all' }}
                 >
-                  🌐 {coinInfo.homepage.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}
+                  🌐 {homepage.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}
                 </a>
               )}
-              {coinInfo.contractAddress && (
+              {contractAddress && (
                 <button
                   onClick={() => {
-                    navigator.clipboard.writeText(coinInfo.contractAddress)
+                    navigator.clipboard.writeText(contractAddress)
                     setCopied(true)
                     setTimeout(() => setCopied(false), 2000)
                   }}
@@ -408,7 +434,7 @@ export default function CryptoDetail({ entry, onClose }) {
                 >
                   <span style={{ flexShrink: 0 }}>{copied ? '✅' : '📋'}</span>
                   <span style={{ fontFamily: 'monospace', lineHeight: 1.4 }}>
-                    {coinInfo.contractAddress}
+                    {contractAddress}
                   </span>
                 </button>
               )}
