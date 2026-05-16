@@ -176,6 +176,7 @@ export default function CryptoDetail({ entry, onClose }) {
   const [loadingInfo, setLoadingInfo]   = useState(true)
   const [showFullDesc, setShowFullDesc] = useState(false)
   const [showAdd, setShowAdd]           = useState(false)
+  const [copied, setCopied]             = useState(false)
 
   const { cgId, symbol, name, currentPrice, change24h } = entry
   const thumb = cgMeta[cgId]?.thumb
@@ -376,6 +377,44 @@ export default function CryptoDetail({ entry, onClose }) {
             </div>
           </div>
         </div>}
+
+        {/* ── Info: web + contract ── */}
+        {(coinInfo?.homepage || coinInfo?.contractAddress) && (
+          <div className="detail-section">
+            <div className="detail-section-label">Info</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {coinInfo.homepage && (
+                <a
+                  href={coinInfo.homepage}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: 'var(--primary)', fontSize: '.85rem', textDecoration: 'none', wordBreak: 'break-all' }}
+                >
+                  🌐 {coinInfo.homepage.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}
+                </a>
+              )}
+              {coinInfo.contractAddress && (
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(coinInfo.contractAddress)
+                    setCopied(true)
+                    setTimeout(() => setCopied(false), 2000)
+                  }}
+                  style={{
+                    background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                    color: 'var(--text-muted)', fontSize: '.78rem', textAlign: 'left',
+                    wordBreak: 'break-all', display: 'flex', alignItems: 'flex-start', gap: '6px',
+                  }}
+                >
+                  <span style={{ flexShrink: 0 }}>{copied ? '✅' : '📋'}</span>
+                  <span style={{ fontFamily: 'monospace', lineHeight: 1.4 }}>
+                    {coinInfo.contractAddress}
+                  </span>
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* ── Description ── */}
         {coinInfo?.description && (
