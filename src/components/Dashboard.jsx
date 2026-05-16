@@ -34,7 +34,6 @@ export default function Dashboard({ onOpenDetail }) {
     next.has(key) ? next.delete(key) : next.add(key)
     return next
   })
-  // mv global (para total y cartera), mvChip respeta también el toggle individual
   const mvChip = (v, key) => (hideValues || hiddenChips.has(key)) ? '••••' : v
 
   const portfolio = useMemo(() => buildPortfolio(transactions, prices), [transactions, prices])
@@ -64,41 +63,42 @@ export default function Dashboard({ onOpenDetail }) {
       {/* Summary */}
       <div className="portfolio-summary">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div className="total-label">Valor total del portafolio</div>
+          <div className="total-value" style={{ margin: 0 }}>{mv(fmt(totals.totalCurrentValue))}</div>
           <button
             className="btn-icon"
-            style={{ fontSize: '1rem', opacity: 0.65, padding: '4px 6px' }}
+            style={{ fontSize: '1rem', opacity: 0.65, padding: '4px 6px', flexShrink: 0 }}
             title={hideValues ? 'Mostrar valores' : 'Ocultar valores'}
             onClick={toggleHideValues}
           >{hideValues ? '🙈' : '👁️'}</button>
         </div>
-        <div className="total-value">{mv(fmt(totals.totalCurrentValue))}</div>
-        <div className="pnl-row">
-          <div className={totals.totalPct >= 0 ? 'pnl-chip pos' : 'pnl-chip neg'}>
-            {mv(fmtPct(totals.totalPct))}
-          </div>
-          <div className={totals.totalPnL >= 0 ? 'pnl-chip pos' : 'pnl-chip neg'}>
-            {mv(fmt(totals.totalPnL))}
-          </div>
+
+        <div style={{ fontSize: '.82rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+          Invertido {mv(fmt(totals.totalNetInvested))}
+        </div>
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
           {totals.totalCurrentValue > 0 && (
             <div className={`pnl-chip ${total24hUSD >= 0 ? 'pos' : 'neg'}`} style={{ fontSize: '.74rem' }}>
               Hoy {mv(`${total24hUSD >= 0 ? '+' : ''}${fmt(total24hUSD)}`)} ({mv(fmtPct(total24hPct))})
             </div>
           )}
-          <div className="pnl-chip neu" style={{ fontSize: '.76rem' }}>
-            Invertido {mv(fmt(totals.totalNetInvested))}
+          <div className={totals.totalPnL >= 0 ? 'pnl-chip pos' : 'pnl-chip neg'} style={{ fontSize: '.74rem' }}>
+            Total {mv(`${totals.totalPnL >= 0 ? '+' : ''}${fmt(totals.totalPnL)}`)} ({mv(fmtPct(totals.totalPct))})
           </div>
-          {totals.totalLiquidez !== 0 && (
+        </div>
+
+        {totals.totalLiquidez !== 0 && (
+          <div style={{ marginTop: '6px' }}>
             <div
               className={totals.totalLiquidez >= 0 ? 'pnl-chip pos' : 'pnl-chip neg'}
-              style={{ fontSize: '.74rem', cursor: 'pointer', userSelect: 'none', opacity: hiddenChips.has('LIQUIDEZ') && !hideValues ? 0.6 : 1 }}
+              style={{ fontSize: '.74rem', cursor: 'pointer', userSelect: 'none', opacity: hiddenChips.has('LIQUIDEZ') && !hideValues ? 0.6 : 1, display: 'inline-flex' }}
               title={`Pulsa para ${hiddenChips.has('LIQUIDEZ') ? 'mostrar' : 'ocultar'} — Saldo de caja disponible`}
               onClick={() => toggleChip('LIQUIDEZ')}
             >
               💵 Liquidez {mvChip(fmt(totals.totalLiquidez), 'LIQUIDEZ')}
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Sort bar — toggle */}
