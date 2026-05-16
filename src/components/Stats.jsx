@@ -32,12 +32,10 @@ function StatBar({ label, left, right, hideValues }) {
   )
 }
 
-function PerfBar({ label, invested, current, hideValues }) {
-  const mv     = (v) => hideValues ? '••••' : v
-  const isProfit = current >= invested
-  const fillPct  = invested > 0 ? Math.min(current / invested, 1) * 100 : 0
-  const pnl      = current - invested
-  const pnlPct   = invested > 0 ? pnl / invested : 0
+function PerfBar({ label, invested, current, totalPct, totalPnL, hideValues }) {
+  const mv      = (v) => hideValues ? '••••' : v
+  const isProfit = totalPct >= 0
+  const fillPct  = Math.min(Math.max(0, 1 + totalPct), 1) * 100
   const color    = isProfit ? 'var(--success)' : 'var(--danger)'
 
   return (
@@ -57,7 +55,7 @@ function PerfBar({ label, invested, current, hideValues }) {
           <span className="stat-legend-name">Valor actual</span>
           <span className="stat-legend-val">{mv(fmt(current))}</span>
           <span className="stat-legend-pct" style={{ color }}>
-            {mv(`${pnl >= 0 ? '+' : ''}${fmt(pnl)} (${fmtPct(pnlPct)})`)}
+            {mv(`${totalPnL >= 0 ? '+' : ''}${fmt(totalPnL)} (${fmtPct(totalPct)})`)}
           </span>
         </div>
       </div>
@@ -117,6 +115,8 @@ export default function Stats() {
             label="Rendimiento"
             invested={totalNetInvested}
             current={totalCurrentValue}
+            totalPct={totals.totalPct}
+            totalPnL={totals.totalPnL}
             hideValues={hideValues}
           />
         )}
