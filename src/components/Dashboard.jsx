@@ -78,27 +78,35 @@ export default function Dashboard({ onOpenDetail }) {
           Invertido {mv(fmt(totals.totalNetInvested))}
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginTop: '6px' }}>
-          <div className={`pnl-chip ${total24hUSD >= 0 ? 'pos' : 'neg'}`} style={{ fontSize: '.74rem', justifyContent: 'center' }}>
-            Hoy {mv(`${total24hUSD >= 0 ? '+' : ''}${fmt(total24hUSD)}`)} ({mv(fmtPct(total24hPct))})
-          </div>
-          <div className={totals.totalPnL >= 0 ? 'pnl-chip pos' : 'pnl-chip neg'} style={{ fontSize: '.74rem', justifyContent: 'center' }}>
-            Total {mv(`${totals.totalPnL >= 0 ? '+' : ''}${fmt(totals.totalPnL)}`)} ({mv(fmtPct(totals.totalPct))})
-          </div>
-        </div>
-
-        {totals.totalLiquidez !== 0 && (
-          <div style={{ marginTop: '6px' }}>
-            <div
-              className={totals.totalLiquidez >= 0 ? 'pnl-chip pos' : 'pnl-chip neg'}
-              style={{ fontSize: '.74rem', cursor: 'pointer', userSelect: 'none', opacity: hiddenChips.has('LIQUIDEZ') && !hideValues ? 0.6 : 1, display: 'inline-flex' }}
-              title={`Pulsa para ${hiddenChips.has('LIQUIDEZ') ? 'mostrar' : 'ocultar'} — Saldo de caja disponible`}
-              onClick={() => toggleChip('LIQUIDEZ')}
-            >
-              💵 Liquidez {mvChip(fmt(totals.totalLiquidez), 'LIQUIDEZ')}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginTop: '8px' }}>
+          {totals.totalCurrentValue > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '.74rem', color: 'var(--text-dim)' }}>Hoy</span>
+              <span className={`pnl-chip ${total24hUSD >= 0 ? 'pos' : 'neg'}`} style={{ fontSize: '.74rem' }}>
+                {mv(`${total24hUSD >= 0 ? '+' : ''}${fmt(total24hUSD)}`)} ({mv(fmtPct(total24hPct))})
+              </span>
             </div>
+          )}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '.74rem', color: 'var(--text-dim)' }}>Total</span>
+            <span className={totals.totalPnL >= 0 ? 'pnl-chip pos' : 'pnl-chip neg'} style={{ fontSize: '.74rem' }}>
+              {mv(`${totals.totalPnL >= 0 ? '+' : ''}${fmt(totals.totalPnL)}`)} ({mv(fmtPct(totals.totalPct))})
+            </span>
           </div>
-        )}
+          {totals.totalLiquidez !== 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '.74rem', color: 'var(--text-dim)' }}>Liquidez</span>
+              <span
+                className={totals.totalLiquidez >= 0 ? 'pnl-chip pos' : 'pnl-chip neg'}
+                style={{ fontSize: '.74rem', cursor: 'pointer', userSelect: 'none', opacity: hiddenChips.has('LIQUIDEZ') && !hideValues ? 0.6 : 1 }}
+                title={`Pulsa para ${hiddenChips.has('LIQUIDEZ') ? 'mostrar' : 'ocultar'}`}
+                onClick={() => toggleChip('LIQUIDEZ')}
+              >
+                💵 {mvChip(fmt(totals.totalLiquidez), 'LIQUIDEZ')}
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Sort bar + global search */}
