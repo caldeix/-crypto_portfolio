@@ -1,6 +1,6 @@
 import { createContext, useContext, useReducer, useEffect, useCallback, useRef } from 'react'
 import { save, load, encodeKey, decodeKey } from '../utils/storage'
-import { fetchPricesByCgId } from '../services/coinGeckoApi'
+import { fetchPricesByCgId, fetchCoinDetail } from '../services/coinGeckoApi'
 import { genId } from '../utils/calculations'
 
 const Ctx = createContext(null)
@@ -33,6 +33,10 @@ function reducer(state, action) {
     case 'LOADING':         return { ...state, isLoading: true, priceError: null }
     case 'PRICE_ERROR':     return { ...state, isLoading: false, priceError: action.payload }
     case 'SET_CG_META':     return { ...state, cgMeta: { ...state.cgMeta, ...action.payload } }
+    case 'MERGE_CG_META': {
+      const { cgId, meta } = action.payload
+      return { ...state, cgMeta: { ...state.cgMeta, [cgId]: { ...state.cgMeta[cgId], ...meta } } }
+    }
     case 'SET_CUSTOM_BARS': return { ...state, customBars: action.payload }
     case 'IMPORT':          return { ...state, ...action.payload, prices: {}, archivedSymbols: action.payload.archivedSymbols || [], cgMeta: action.payload.cgMeta || state.cgMeta }
     default:                return state
@@ -41,7 +45,11 @@ function reducer(state, action) {
 
 export function AppProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, initialState)
-  const timerRef = useRef(null)
+  const timerRef       = useRef(null)
+  const cgMetaRef      = useRef(state.cgMeta)   // always-current cgMeta without dep issues
+  const metaFetchedRef = useRef(new Set())       // which cgIds had detail fetched this session
+
+  useEffect(() => { cgMetaRef.current = state.cgMeta }, [state.cgMeta])
 
   const cgApiKey = decodeKey(state.cgApiKeyEncoded)
   const REFRESH_MS = cgApiKey ? 2 * 60 * 1000 : 5 * 60 * 1000
@@ -75,6 +83,32 @@ export function AppProvider({ children }) {
       const { prices, meta } = await fetchPricesByCgId(ids, cgApiKey)
       dispatch({ type: 'SET_PRICES', payload: prices })
       if (Object.keys(meta).length) dispatch({ type: 'SET_CG_META', payload: meta })
+
+      // Background-fetch coin details for any coin missing homepage or contractAddress.
+      // Uses cgMetaRef so we read the latest cached value without adding it as a dep.
+      const needsMeta = ids.filter(id => {
+        if (metaFetchedRef.current.has(id)) return false
+        const m = cgMetaRef.current[id]
+        return !m?.homepage && !m?.contractAddress
+      })
+      if (needsMeta.length > 0) {
+        needsMeta.forEach(id => metaFetchedRef.current.add(id));
+        (async () => {
+          for (const cgId of needsMeta) {
+            try {
+              await new Promise(r => setTimeout(r, 900))
+              const detail = await fetchCoinDetail(cgId, cgApiKey)
+              const patch = {}
+              if (detail.homepage)         patch.homepage         = detail.homepage
+              if (detail.contractAddress)  patch.contractAddress  = detail.contractAddress
+              if (Object.keys(patch).length)
+                dispatch({ type: 'MERGE_CG_META', payload: { cgId, meta: patch } })
+            } catch {
+              metaFetchedRef.current.delete(cgId) // allow retry next session
+            }
+          }
+        })()
+      }
     } catch (e) {
       dispatch({ type: 'PRICE_ERROR', payload: e.message })
     }
@@ -129,7 +163,7 @@ export function AppProvider({ children }) {
 
   const saveCgMeta = (cgId, meta) => {
     if (!cgId) return
-    dispatch({ type: 'SET_CG_META', payload: { [cgId]: { ...state.cgMeta[cgId], ...meta } } })
+    dispatch({ type: 'MERGE_CG_META', payload: { cgId, meta } })
   }
 
   const addCustomBar = (bar) =>
