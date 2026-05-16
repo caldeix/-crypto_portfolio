@@ -167,7 +167,7 @@ const RANGES = [
 ]
 
 export default function CryptoDetail({ entry, onClose }) {
-  const { cgApiKey, cgMeta } = useApp()
+  const { cgApiKey, cgMeta, saveCgMeta } = useApp()
 
   const [range, setRange]           = useState(7)
   const [chartData, setChartData]   = useState(null)
@@ -196,7 +196,10 @@ export default function CryptoDetail({ entry, onClose }) {
     if (!cgId) return
     setLoadingInfo(true)
     fetchCoinDetail(cgId, cgApiKey)
-      .then(info => setCoinInfo(info))
+      .then(info => {
+        setCoinInfo(info)
+        if (info?.homepage) saveCgMeta(cgId, { homepage: info.homepage })
+      })
       .catch(() => setCoinInfo(null))
       .finally(() => setLoadingInfo(false))
   }, [cgId, cgApiKey])

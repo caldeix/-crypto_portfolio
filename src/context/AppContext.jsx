@@ -129,7 +129,7 @@ export function AppProvider({ children }) {
 
   const saveCgMeta = (cgId, meta) => {
     if (!cgId) return
-    dispatch({ type: 'SET_CG_META', payload: { [cgId]: meta } })
+    dispatch({ type: 'SET_CG_META', payload: { [cgId]: { ...state.cgMeta[cgId], ...meta } } })
   }
 
   const addCustomBar = (bar) =>
