@@ -64,48 +64,47 @@ export default function Dashboard({ onOpenDetail }) {
     <div className="main-content">
       {/* Summary */}
       <div className="portfolio-summary">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        {/* Total value + eye */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div className="total-value" style={{ margin: 0 }}>{mv(fmt(totals.totalCurrentValue))}</div>
           <button
             className="btn-icon"
-            style={{ fontSize: '1rem', opacity: 0.65, padding: '4px 6px', flexShrink: 0 }}
+            style={{ fontSize: '1rem', opacity: 0.55, padding: '2px 4px', flexShrink: 0 }}
             title={hideValues ? 'Mostrar valores' : 'Ocultar valores'}
             onClick={toggleHideValues}
           >{hideValues ? '🙈' : '👁️'}</button>
         </div>
 
-        <div style={{ fontSize: '.82rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-          Invertido {mv(fmt(totals.totalNetInvested))}
+        {/* Invertido + Liquidez en la misma línea */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '4px' }}>
+          <span style={{ fontSize: '.78rem', color: 'var(--text-muted)' }}>
+            Invertido <strong style={{ color: 'var(--text)', fontWeight: 600 }}>{mv(fmt(totals.totalNetInvested))}</strong>
+          </span>
+          {totals.totalLiquidez !== 0 && (
+            <span
+              style={{ fontSize: '.78rem', color: 'var(--text-muted)', cursor: 'pointer', userSelect: 'none', opacity: hiddenChips.has('LIQUIDEZ') && !hideValues ? 0.5 : 1 }}
+              onClick={() => toggleChip('LIQUIDEZ')}
+              title="Pulsa para ocultar/mostrar"
+            >
+              Liquidez <strong style={{ color: 'var(--text)', fontWeight: 600 }}>{mvChip(fmt(totals.totalLiquidez), 'LIQUIDEZ')}</strong>
+            </span>
+          )}
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginTop: '8px' }}>
-          {totals.totalCurrentValue > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '.74rem', color: 'var(--text-dim)' }}>Hoy</span>
-              <span className={`pnl-chip ${total24hUSD >= 0 ? 'pos' : 'neg'}`} style={{ fontSize: '.74rem' }}>
-                {mv(`${total24hUSD >= 0 ? '+' : ''}${fmt(total24hUSD)}`)} ({mv(fmtPct(total24hPct))})
-              </span>
-            </div>
-          )}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '.74rem', color: 'var(--text-dim)' }}>Total</span>
-            <span className={totals.totalPnL >= 0 ? 'pnl-chip pos' : 'pnl-chip neg'} style={{ fontSize: '.74rem' }}>
-              {mv(`${totals.totalPnL >= 0 ? '+' : ''}${fmt(totals.totalPnL)}`)} ({mv(fmtPct(totals.totalPct))})
-            </span>
+        {/* 24h */}
+        {totals.totalCurrentValue > 0 && (
+          <div style={{ marginTop: '8px', fontSize: '.82rem', color: total24hUSD >= 0 ? 'var(--success)' : 'var(--danger)' }}>
+            <span style={{ color: 'var(--text-dim)', marginRight: '6px' }}>24h</span>
+            {mv(`${total24hUSD >= 0 ? '+' : ''}${fmt(total24hUSD)}`)}
+            <span style={{ opacity: 0.75, marginLeft: '4px' }}>({mv(fmtPct(total24hPct))})</span>
           </div>
-          {totals.totalLiquidez !== 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '.74rem', color: 'var(--text-dim)' }}>Liquidez</span>
-              <span
-                className={totals.totalLiquidez >= 0 ? 'pnl-chip pos' : 'pnl-chip neg'}
-                style={{ fontSize: '.74rem', cursor: 'pointer', userSelect: 'none', opacity: hiddenChips.has('LIQUIDEZ') && !hideValues ? 0.6 : 1 }}
-                title={`Pulsa para ${hiddenChips.has('LIQUIDEZ') ? 'mostrar' : 'ocultar'}`}
-                onClick={() => toggleChip('LIQUIDEZ')}
-              >
-                💵 {mvChip(fmt(totals.totalLiquidez), 'LIQUIDEZ')}
-              </span>
-            </div>
-          )}
+        )}
+
+        {/* Rent total */}
+        <div style={{ marginTop: '4px', fontSize: '.82rem', color: totals.totalPnL >= 0 ? 'var(--success)' : 'var(--danger)' }}>
+          <span style={{ color: 'var(--text-dim)', marginRight: '6px' }}>rent</span>
+          {mv(`${totals.totalPnL >= 0 ? '+' : ''}${fmt(totals.totalPnL)}`)}
+          <span style={{ opacity: 0.75, marginLeft: '4px' }}>({mv(fmtPct(totals.totalPct))})</span>
         </div>
       </div>
 
