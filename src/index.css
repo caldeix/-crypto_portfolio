@@ -391,6 +391,7 @@ label { font-size: .8rem; color: var(--text-muted); display: block; margin-botto
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 16px;
+  text-align: left;
 }
 .stat-row-label {
   font-size: .78rem;

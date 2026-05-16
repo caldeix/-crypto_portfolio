@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useApp } from '../context/AppContext'
-import { buildPortfolio, buildTotals, fmt } from '../utils/calculations'
+import { buildPortfolio, buildTotals, fmt, fmtPct } from '../utils/calculations'
 
 function StatBar({ label, left, right, hideValues }) {
   const mv = (v) => hideValues ? '••••' : v
@@ -32,6 +32,39 @@ function StatBar({ label, left, right, hideValues }) {
   )
 }
 
+function PerfBar({ label, invested, current, hideValues }) {
+  const mv     = (v) => hideValues ? '••••' : v
+  const isProfit = current >= invested
+  const fillPct  = invested > 0 ? Math.min(current / invested, 1) * 100 : 0
+  const pnl      = current - invested
+  const pnlPct   = invested > 0 ? pnl / invested : 0
+  const color    = isProfit ? 'var(--success)' : 'var(--danger)'
+
+  return (
+    <div className="stat-row">
+      <div className="stat-row-label">{label}</div>
+      <div className="stat-bar">
+        <div style={{ width: `${fillPct}%`, background: color, transition: 'width .5s ease' }} />
+      </div>
+      <div className="stat-bar-legend">
+        <div className="stat-legend-item stat-legend-left">
+          <span className="stat-legend-dot" style={{ background: 'var(--text-dim)' }} />
+          <span className="stat-legend-name">Invertido</span>
+          <span className="stat-legend-val">{mv(fmt(invested))}</span>
+        </div>
+        <div className="stat-legend-item stat-legend-right">
+          <span className="stat-legend-dot" style={{ background: color }} />
+          <span className="stat-legend-name">Valor actual</span>
+          <span className="stat-legend-val">{mv(fmt(current))}</span>
+          <span className="stat-legend-pct" style={{ color }}>
+            {mv(`${pnl >= 0 ? '+' : ''}${fmt(pnl)} (${fmtPct(pnlPct)})`)}
+          </span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function Stats() {
   const { transactions, prices, archivedSymbols, hideValues } = useApp()
 
@@ -41,33 +74,9 @@ export default function Stats() {
 
   const { totalCurrentValue, totalNetInvested, totalLiquidez } = totals
 
-  const bars = useMemo(() => {
-    const items = []
+  const hasData = totalNetInvested > 0 || totalCurrentValue > 0 || totalLiquidez !== 0
 
-    if (totalLiquidez !== 0) {
-      const total = totalCurrentValue + totalLiquidez
-      items.push({
-        id: 'capital',
-        label: 'Distribución de capital',
-        left:  { label: 'Portfolio',  value: totalCurrentValue, pct: total > 0 ? totalCurrentValue / total : 0 },
-        right: { label: 'Liquidez',   value: totalLiquidez,     pct: total > 0 ? totalLiquidez / total     : 0 },
-      })
-    }
-
-    if (totalNetInvested > 0 || totalCurrentValue > 0) {
-      const total = totalNetInvested + totalCurrentValue
-      items.push({
-        id: 'rendimiento',
-        label: 'Invertido vs Valor actual',
-        left:  { label: 'Invertido',    value: totalNetInvested,  pct: total > 0 ? totalNetInvested  / total : 0 },
-        right: { label: 'Valor actual', value: totalCurrentValue, pct: total > 0 ? totalCurrentValue / total : 0 },
-      })
-    }
-
-    return items
-  }, [totalCurrentValue, totalNetInvested, totalLiquidez])
-
-  if (bars.length === 0) {
+  if (!hasData) {
     return (
       <div className="main-content">
         <div className="stats-header">
@@ -88,9 +97,30 @@ export default function Stats() {
         <div className="stats-title">Estadísticas</div>
       </div>
       <div className="stats-list">
-        {bars.map(bar => (
-          <StatBar key={bar.id} {...bar} hideValues={hideValues} />
-        ))}
+
+        {totalLiquidez !== 0 && (() => {
+          const total = totalCurrentValue + totalLiquidez
+          return (
+            <StatBar
+              key="capital"
+              label="Distribución de capital"
+              left={{  label: 'Portfolio', value: totalCurrentValue, pct: total > 0 ? totalCurrentValue / total : 0 }}
+              right={{ label: 'Liquidez',  value: totalLiquidez,     pct: total > 0 ? totalLiquidez / total     : 0 }}
+              hideValues={hideValues}
+            />
+          )
+        })()}
+
+        {totalNetInvested > 0 && (
+          <PerfBar
+            key="rendimiento"
+            label="Rendimiento"
+            invested={totalNetInvested}
+            current={totalCurrentValue}
+            hideValues={hideValues}
+          />
+        )}
+
       </div>
     </div>
   )
