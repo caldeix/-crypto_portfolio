@@ -75,6 +75,8 @@ export function AppProvider({ children }) {
     return [...ids]
   }, [state.transactions, state.archivedSymbols])
 
+  const DETAIL_TTL = 24 * 60 * 60 * 1000
+
   const refreshPrices = useCallback(async () => {
     const ids = getCgIds()
     if (!ids.length) return
@@ -84,27 +86,27 @@ export function AppProvider({ children }) {
       dispatch({ type: 'SET_PRICES', payload: prices })
       if (Object.keys(meta).length) dispatch({ type: 'SET_CG_META', payload: meta })
 
-      // Background-fetch coin details for any coin missing homepage or contractAddress.
-      // Uses cgMetaRef so we read the latest cached value without adding it as a dep.
-      const needsMeta = ids.filter(id => {
+      // Background-fetch full coin detail for coins with no cache or stale cache (>24h).
+      // Uses cgMetaRef to read latest without adding it as a dep.
+      const needsDetail = ids.filter(id => {
         if (metaFetchedRef.current.has(id)) return false
         const m = cgMetaRef.current[id]
-        return !m?.homepage && !m?.contractAddress
+        const age = m?.detailFetchedAt ? Date.now() - m.detailFetchedAt : Infinity
+        return !m?.cachedDetail || age > DETAIL_TTL
       })
-      if (needsMeta.length > 0) {
-        needsMeta.forEach(id => metaFetchedRef.current.add(id));
+      if (needsDetail.length > 0) {
+        needsDetail.forEach(id => metaFetchedRef.current.add(id));
         (async () => {
-          for (const cgId of needsMeta) {
+          for (const cgId of needsDetail) {
             try {
               await new Promise(r => setTimeout(r, 900))
               const detail = await fetchCoinDetail(cgId, cgApiKey)
-              const patch = {}
-              if (detail.homepage)         patch.homepage         = detail.homepage
-              if (detail.contractAddress)  patch.contractAddress  = detail.contractAddress
-              if (Object.keys(patch).length)
-                dispatch({ type: 'MERGE_CG_META', payload: { cgId, meta: patch } })
+              const patch = { cachedDetail: detail, detailFetchedAt: Date.now() }
+              if (detail.homepage)        patch.homepage        = detail.homepage
+              if (detail.contractAddress) patch.contractAddress = detail.contractAddress
+              dispatch({ type: 'MERGE_CG_META', payload: { cgId, meta: patch } })
             } catch {
-              metaFetchedRef.current.delete(cgId) // allow retry next session
+              metaFetchedRef.current.delete(cgId)
             }
           }
         })()

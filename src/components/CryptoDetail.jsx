@@ -166,21 +166,28 @@ const RANGES = [
   { label: '3M', days: 90 },
 ]
 
+const DETAIL_TTL = 24 * 60 * 60 * 1000
+
 export default function CryptoDetail({ entry, onClose }) {
   const { cgApiKey, cgMeta, saveCgMeta } = useApp()
 
+  const { cgId, symbol, name, currentPrice, change24h } = entry
+  const thumb = cgMeta[cgId]?.thumb
+
+  // Read cache synchronously — shows data instantly if background fetch already ran
+  const cachedDetail    = cgMeta[cgId]?.cachedDetail   ?? null
+  const detailFetchedAt = cgMeta[cgId]?.detailFetchedAt ?? 0
+
   const [range, setRange]               = useState(7)
   const [chartData, setChartData]       = useState(null)
-  const [coinInfo, setCoinInfo]         = useState(null)
+  const [coinInfo, setCoinInfo]         = useState(cachedDetail)
   const [infoError, setInfoError]       = useState(false)
   const [loadingChart, setLoadingChart] = useState(true)
-  const [loadingInfo, setLoadingInfo]   = useState(true)
+  const [loadingInfo, setLoadingInfo]   = useState(cachedDetail === null)
   const [showFullDesc, setShowFullDesc] = useState(false)
   const [showAdd, setShowAdd]           = useState(false)
   const [copied, setCopied]             = useState(false)
-
-  const { cgId, symbol, name, currentPrice, change24h } = entry
-  const thumb = cgMeta[cgId]?.thumb
+  const [retryKey, setRetryKey]         = useState(0)
 
   // Load chart data when range changes
   useEffect(() => {
@@ -193,37 +200,39 @@ export default function CryptoDetail({ entry, onClose }) {
       .finally(() => setLoadingChart(false))
   }, [cgId, range, cgApiKey])
 
-  // Load coin detail — with one automatic retry after 3 s on failure
-  const loadInfo = useCallback(() => {
+  // Fetch coin detail only when cache is missing or stale (>24h); retryKey forces a re-fetch
+  useEffect(() => {
     if (!cgId) return
-    setLoadingInfo(true)
+    const isFresh = cachedDetail && (Date.now() - detailFetchedAt) < DETAIL_TTL
+    if (retryKey === 0 && isFresh) return  // cache is good, nothing to do
+
+    if (!cachedDetail) setLoadingInfo(true)
     setInfoError(false)
+
     let cancelled = false
     const run = async (attempt = 0) => {
       try {
         const info = await fetchCoinDetail(cgId, cgApiKey)
         if (cancelled) return
         setCoinInfo(info)
-        const patch = {}
-        if (info?.homepage)        patch.homepage        = info.homepage
-        if (info?.contractAddress) patch.contractAddress = info.contractAddress
-        if (Object.keys(patch).length) saveCgMeta(cgId, patch)
+        const patch = { cachedDetail: info, detailFetchedAt: Date.now() }
+        if (info.homepage)        patch.homepage        = info.homepage
+        if (info.contractAddress) patch.contractAddress = info.contractAddress
+        saveCgMeta(cgId, patch)
       } catch {
         if (cancelled) return
         if (attempt < 1) {
           await new Promise(r => setTimeout(r, 3000))
           return run(attempt + 1)
         }
-        setInfoError(true)
+        if (!cachedDetail) setInfoError(true)
       } finally {
         if (!cancelled) setLoadingInfo(false)
       }
     }
     run()
     return () => { cancelled = true }
-  }, [cgId, cgApiKey]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => loadInfo(), [cgId, cgApiKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cgId, cgApiKey, retryKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const displayPrice = currentPrice || coinInfo?.currentPrice || 0
   const change24hVal = currentPrice ? (change24h ?? 0) : (coinInfo?.change24h ?? change24h ?? 0)
@@ -309,7 +318,7 @@ export default function CryptoDetail({ entry, onClose }) {
           <div className="detail-section-label">Datos de mercado</div>
           <div className="crypto-card-stats">
 
-            {loadingInfo ? (
+            {loadingInfo && !coinInfo ? (
               <div style={{ gridColumn: '1 / -1', color: 'var(--text-dim)', fontSize: '.82rem' }}>
                 Cargando…
               </div>
@@ -362,7 +371,7 @@ export default function CryptoDetail({ entry, onClose }) {
                 <button
                   className="btn btn-ghost"
                   style={{ fontSize: '.78rem', padding: '4px 10px' }}
-                  onClick={loadInfo}
+                  onClick={() => setRetryKey(k => k + 1)}
                 >Reintentar</button>
               </div>
             )}
