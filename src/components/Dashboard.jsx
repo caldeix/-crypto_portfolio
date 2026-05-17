@@ -41,7 +41,7 @@ export default function Dashboard({ onOpenDetail }) {
   const portfolio = useMemo(() => buildPortfolio(transactions, prices), [transactions, prices])
   const active    = useMemo(() => portfolio.filter(e => !archivedSymbols.includes(e.symbol)), [portfolio, archivedSymbols])
   const archived  = useMemo(() => portfolio.filter(e =>  archivedSymbols.includes(e.symbol)), [portfolio, archivedSymbols])
-  const totals    = useMemo(() => buildTotals(active, transactions), [active, transactions])
+  const totals    = useMemo(() => buildTotals(portfolio, transactions), [portfolio, transactions])
 
   const total24hUSD = active.reduce((s, e) => s + (e.currentValue * (e.change24h / 100)), 0)
   const total24hPct = totals.totalCurrentValue > 0 ? total24hUSD / totals.totalCurrentValue : 0
