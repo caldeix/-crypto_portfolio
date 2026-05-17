@@ -172,7 +172,7 @@ export default function Stats() {
 
   const portfolio = useMemo(() => buildPortfolio(transactions, prices), [transactions, prices])
   const active    = useMemo(() => portfolio.filter(e => !archivedSymbols.includes(e.symbol)), [portfolio, archivedSymbols])
-  const totals    = useMemo(() => buildTotals(active, transactions), [active, transactions])
+  const totals    = useMemo(() => buildTotals(portfolio, transactions), [portfolio, transactions])
 
   const { totalCurrentValue, totalNetInvested, totalLiquidez } = totals
   const hasData = totalNetInvested > 0 || totalCurrentValue > 0 || totalLiquidez !== 0
