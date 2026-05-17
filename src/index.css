@@ -458,8 +458,8 @@ label { font-size: .8rem; color: var(--text-muted); display: block; margin-botto
 
 .stat-bar-legend {
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px 0;
+  flex-direction: column;
+  gap: 4px;
 }
 .stat-legend-item {
   display: flex;
@@ -468,8 +468,6 @@ label { font-size: .8rem; color: var(--text-muted); display: block; margin-botto
   font-size: .78rem;
   white-space: nowrap;
 }
-.stat-legend-left  { margin-right: auto; }
-.stat-legend-right { margin-left: auto; }
 
 .stat-legend-dot {
   width: 8px; height: 8px;
