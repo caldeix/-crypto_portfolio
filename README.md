@@ -4,13 +4,12 @@
 
 **Seguimiento profesional de tu cartera de criptomonedas — sin servidores, sin registro, sin ceder tus datos.**
 
-[![Live App](https://img.shields.io/badge/🚀%20App%20en%20vivo-GitHub%20Pages-success?style=for-the-badge)](https://caldeix.github.io/-crypto_portfolio/)
-[![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev)
-[![Vite](https://img.shields.io/badge/Vite-6-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev)
-[![CoinGecko](https://img.shields.io/badge/Powered%20by-CoinGecko-8DC351?style=for-the-badge)](https://www.coingecko.com)
-[![Self Custody](https://img.shields.io/badge/Datos-Self%20Custody-D4AF37?style=for-the-badge&logo=shield&logoColor=white)]()
-[![License](https://img.shields.io/github/license/caldeix/-crypto_portfolio?style=for-the-badge)](LICENSE)
-[![Last Commit](https://img.shields.io/github/last-commit/caldeix/-crypto_portfolio?style=for-the-badge&color=8A2BE2)](https://github.com/caldeix/-crypto_portfolio/commits/master)
+![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)
+![Vite](https://img.shields.io/badge/Vite-6-646CFF?logo=vite&logoColor=white)
+![JavaScript](https://img.shields.io/badge/JavaScript-ES2024-F7DF1E?logo=javascript&logoColor=black)
+![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-deployed-222222?logo=github)
+![License](https://img.shields.io/github/license/caldeix/-crypto_portfolio)
+![Last Commit](https://img.shields.io/github/last-commit/caldeix/-crypto_portfolio)
 
 <br/>
 
