@@ -4,6 +4,9 @@ import { fmt, fmtPrice, fmtPct, fmtCompact } from '../utils/calculations'
 import { useApp } from '../context/AppContext'
 import AddTransactionModal from './modals/AddTransactionModal'
 
+const fmtCycleDate = (iso) =>
+  new Date(iso).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })
+
 // ── SVG Price Chart ──────────────────────────────────────────────────────────
 function PriceChart({ data, cgId }) {
   const svgRef = useRef(null)
@@ -188,6 +191,7 @@ export default function CryptoDetail({ entry, onClose }) {
   const [showAdd, setShowAdd]           = useState(false)
   const [copied, setCopied]             = useState(false)
   const [retryKey, setRetryKey]         = useState(0)
+  const [showHistory, setShowHistory]   = useState(false)
 
   // Load chart data when range changes
   useEffect(() => {
@@ -378,6 +382,31 @@ export default function CryptoDetail({ entry, onClose }) {
           </div>
         </div>
 
+        {/* ── Posición cerrada: todos sus ciclos volvieron a cero ── */}
+        {entry.status === 'closed' && (
+          <div className="detail-section">
+            <div className="detail-section-label">Posición cerrada</div>
+            <div className="crypto-card-stats">
+              <div className="stat">
+                <div className="stat-label">Realizado</div>
+                <div className={`stat-value ${entry.realizedPnL >= 0 ? 'pos' : 'neg'}`}>
+                  {fmt(entry.realizedPnL)}
+                </div>
+              </div>
+              <div className="stat">
+                <div className="stat-label">Rent. realiz.</div>
+                <div className={`stat-value ${entry.realizedPnL >= 0 ? 'pos' : 'neg'}`}>
+                  {fmtPct(entry.realizedPct)}
+                </div>
+              </div>
+              <div className="stat">
+                <div className="stat-label">Ciclos</div>
+                <div className="stat-value">{entry.closedCycles.length}</div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ── Portfolio position — ocultar si no hay posición ── */}
         {entry.amountHeld > 0 && <div className="detail-section">
           <div className="detail-section-label">Tu posición</div>
@@ -412,6 +441,50 @@ export default function CryptoDetail({ entry, onClose }) {
             </div>
           </div>
         </div>}
+
+        {/* ── Histórico: ciclos ya cerrados de esta moneda ── */}
+        {entry.closedCycles && entry.closedCycles.length > 0 && (
+          <div className="detail-section">
+            <button
+              onClick={() => setShowHistory(v => !v)}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                width: '100%', background: 'none', border: 'none', padding: 0,
+                color: 'inherit', font: 'inherit', cursor: 'pointer', textAlign: 'left',
+              }}
+            >
+              <span className="detail-section-label" style={{ marginBottom: 0 }}>
+                Histórico · posiciones cerradas ({entry.closedCycles.length})
+              </span>
+              <span style={{ color: 'var(--text-dim)', fontSize: '.8rem' }}>{showHistory ? '▾' : '▸'}</span>
+            </button>
+
+            {showHistory && entry.closedCycles.map(cy => (
+              <div
+                key={cy.index}
+                style={{ marginTop: '10px', padding: '10px', background: 'var(--card)', borderRadius: 'var(--radius-sm)' }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '.78rem', color: 'var(--text-muted)' }}>
+                    #{cy.index + 1} · {fmtCycleDate(cy.start)} → {fmtCycleDate(cy.end)}
+                  </span>
+                  <span
+                    className={cy.realizedPnL >= 0 ? 'pos' : 'neg'}
+                    style={{ fontSize: '.86rem', fontWeight: 600 }}
+                  >
+                    {fmt(cy.realizedPnL)} ({fmtPct(cy.realizedPct)})
+                  </span>
+                </div>
+                <div style={{ display: 'flex', gap: '14px', marginTop: '6px', fontSize: '.74rem', color: 'var(--text-dim)', flexWrap: 'wrap' }}>
+                  <span>Invertido {fmt(cy.invested)}</span>
+                  <span>Vendido {fmt(cy.soldValue)}</span>
+                  <span>Avg {fmtPrice(cy.avgBuy)}</span>
+                  <span>{cy.txIds.length} tx</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* ── Info: web + contract ── */}
         {(homepage || contractAddress) && (

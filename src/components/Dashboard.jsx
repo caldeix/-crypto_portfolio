@@ -24,7 +24,7 @@ const sortFn = (key) => {
 }
 
 export default function Dashboard({ onOpenDetail }) {
-  const { transactions, prices, reassignCgId, archivedSymbols, archiveSymbol, unarchiveSymbol, hideValues, toggleHideValues } = useApp()
+  const { transactions, prices, cycles, reassignCgId, archivedSymbols, archiveSymbol, unarchiveSymbol, hideValues, toggleHideValues } = useApp()
   const [reassignTarget, setReassignTarget]     = useState(null)
   const [showArchived, setShowArchived]         = useState(false)
   const [sortBy, setSortBy]                     = useState('value-desc')
@@ -38,7 +38,7 @@ export default function Dashboard({ onOpenDetail }) {
   })
   const mvChip = (v, key) => (hideValues || hiddenChips.has(key)) ? '••••' : v
 
-  const portfolio = useMemo(() => buildPortfolio(transactions, prices), [transactions, prices])
+  const portfolio = useMemo(() => buildPortfolio(transactions, prices, cycles), [transactions, prices, cycles])
   const active    = useMemo(() => portfolio.filter(e => !archivedSymbols.includes(e.symbol)), [portfolio, archivedSymbols])
   const archived  = useMemo(() => portfolio.filter(e =>  archivedSymbols.includes(e.symbol)), [portfolio, archivedSymbols])
   const totals    = useMemo(() => buildTotals(portfolio, transactions), [portfolio, transactions])
@@ -106,6 +106,18 @@ export default function Dashboard({ onOpenDetail }) {
           {mv(`${totals.totalPnL >= 0 ? '+' : ''}${fmt(totals.totalPnL)}`)}
           <span style={{ opacity: 0.75, marginLeft: '4px' }}>({mv(fmtPct(totals.totalPct))})</span>
         </div>
+
+        {/* P&L realizado. "rent" arriba ya solo cuenta el libro abierto, asi que
+            sin esta linea el beneficio de las posiciones cerradas desapareceria. */}
+        {totals.realizedPnL !== 0 && (
+          <div style={{ marginTop: '4px', fontSize: '.82rem', color: totals.realizedPnL >= 0 ? 'var(--success)' : 'var(--danger)' }}>
+            <span style={{ color: 'var(--text-dim)', marginRight: '6px' }}>real</span>
+            {mv(`${totals.realizedPnL >= 0 ? '+' : ''}${fmt(totals.realizedPnL)}`)}
+            <span style={{ opacity: 0.75, marginLeft: '4px', color: 'var(--text-dim)' }}>
+              ({totals.closedCount} {totals.closedCount === 1 ? 'cerrada' : 'cerradas'})
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Sort bar + global search */}

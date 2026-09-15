@@ -157,7 +157,7 @@ function CustomBarEditor({ portfolio, onConfirm, onClose }) {
 }
 
 export default function Stats() {
-  const { transactions, prices, archivedSymbols, hideValues, customBars, addCustomBar, deleteCustomBar } = useApp()
+  const { transactions, prices, cycles, archivedSymbols, hideValues, customBars, addCustomBar, deleteCustomBar } = useApp()
   const [showEditor, setShowEditor]   = useState(false)
   const [showFilter, setShowFilter]   = useState(false)
   const [hiddenStats, setHiddenStats] = useState(new Set())
@@ -170,12 +170,12 @@ export default function Stats() {
     return () => document.removeEventListener('mousedown', handler)
   }, [showFilter])
 
-  const portfolio = useMemo(() => buildPortfolio(transactions, prices), [transactions, prices])
+  const portfolio = useMemo(() => buildPortfolio(transactions, prices, cycles), [transactions, prices, cycles])
   const active    = useMemo(() => portfolio.filter(e => !archivedSymbols.includes(e.symbol)), [portfolio, archivedSymbols])
   const totals    = useMemo(() => buildTotals(portfolio, transactions), [portfolio, transactions])
 
   const { totalCurrentValue, totalNetInvested, totalLiquidez } = totals
-  const hasData = totalNetInvested > 0 || totalCurrentValue > 0 || totalLiquidez !== 0
+  const hasData = totalNetInvested > 0 || totalCurrentValue > 0 || totalLiquidez !== 0 || totals.realizedPnL !== 0
 
   const toggleHidden = (id) => setHiddenStats(prev => {
     const next = new Set(prev)

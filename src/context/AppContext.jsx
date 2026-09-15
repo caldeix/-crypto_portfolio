@@ -1,7 +1,7 @@
-import { createContext, useContext, useReducer, useEffect, useCallback, useRef } from 'react'
+import { createContext, useContext, useReducer, useEffect, useCallback, useRef, useMemo } from 'react'
 import { save, load, encodeKey, decodeKey } from '../utils/storage'
 import { fetchPricesByCgId, fetchCoinDetail } from '../services/coinGeckoApi'
-import { genId } from '../utils/calculations'
+import { genId, buildCycles, annotateTransactions } from '../utils/calculations'
 
 const Ctx = createContext(null)
 
@@ -88,6 +88,11 @@ export function AppProvider({ children }) {
   const metaFetchedRef = useRef(new Set())       // which cgIds had detail fetched this session
 
   useEffect(() => { cgMetaRef.current = state.cgMeta }, [state.cgMeta])
+
+  // Cycle segmentation depends only on transactions, so it survives the 2-5 min
+  // price refreshes. Both buildPortfolio call sites share this one computation
+  // instead of each recomputing it.
+  const cycles = useMemo(() => buildCycles(state.transactions), [state.transactions])
 
   const cgApiKey = decodeKey(state.cgApiKeyEncoded)
   const REFRESH_MS = cgApiKey ? 2 * 60 * 1000 : 5 * 60 * 1000
@@ -222,7 +227,9 @@ export function AppProvider({ children }) {
     const data = {
       version: DATA_VERSION,
       exportedAt: new Date().toISOString(),
-      transactions: state.transactions,
+      // realized is derived, never stored — dumped here so it is visible when
+      // you open the JSON. It is ignored on import and recomputed.
+      transactions: annotateTransactions(state.transactions, cycles),
       customCategories: state.customCategories,
       archivedSymbols: state.archivedSymbols,
       customBars: state.customBars,
@@ -280,7 +287,7 @@ export function AppProvider({ children }) {
 
   return (
     <Ctx.Provider value={{
-      ...state, cgApiKey, allCategories,
+      ...state, cgApiKey, allCategories, cycles,
       setCgApiKey,
       addCategory, renameCategory, deleteCategory,
       addTransaction, editTransaction, deleteTransaction, reassignCgId,

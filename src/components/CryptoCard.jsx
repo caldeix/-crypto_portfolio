@@ -14,10 +14,21 @@ export default function CryptoCard({ entry, onClick, onReassign, onArchive, arch
     profitability, profitabilityUSD,
     avgBuy, avgSell, unrealizedPct, unrealizedUSD,
     invested, soldValue, change24h,
+    status, realizedPnL, realizedPct, closedCycles,
   } = entry
 
   const pnlClass = profitabilityUSD >= 0 ? 'pos' : 'neg'
   const c24Class = change24h >= 0 ? 'pos' : 'neg'
+
+  // A position whose cycles have all closed has no cost basis left, so the
+  // normal 10-stat grid would read "Avg Compra —, Invertido $0.00, Rent +0.00%"
+  // and look like a bug. Show the realized result instead.
+  const isClosed    = status === 'closed'
+  const realClass   = realizedPnL >= 0 ? 'pos' : 'neg'
+  const lastCycle   = closedCycles && closedCycles.length ? closedCycles[closedCycles.length - 1] : null
+  const closedOn    = lastCycle
+    ? new Date(lastCycle.end).toLocaleDateString('es-ES', { month: 'short', year: '2-digit' })
+    : '—'
 
   return (
     <div className="crypto-card" onClick={onClick}>
@@ -50,11 +61,31 @@ export default function CryptoCard({ entry, onClick, onReassign, onArchive, arch
               onClick={e => { e.stopPropagation(); onArchive() }}
             >{archived ? '📤' : '🗄️'}</button>
           </div>
-          <div className={`crypto-card-change ${c24Class}`}>
-            {change24h >= 0 ? '▲' : '▼'} {Math.abs(change24h).toFixed(2)}% 24h
-          </div>
+          {isClosed ? (
+            <div className="crypto-card-change" style={{ color: 'var(--text-dim)' }}>cerrada</div>
+          ) : (
+            <div className={`crypto-card-change ${c24Class}`}>
+              {change24h >= 0 ? '▲' : '▼'} {Math.abs(change24h).toFixed(2)}% 24h
+            </div>
+          )}
         </div>
       </div>
+      {isClosed ? (
+        <div className="crypto-card-stats">
+          <div className="stat">
+            <span className="stat-label">Realizado</span>
+            <span className={`stat-value ${realClass}`}>{mv(fmt(realizedPnL))}</span>
+          </div>
+          <div className="stat">
+            <span className="stat-label">Rent. realiz.</span>
+            <span className={`stat-value ${realClass}`}>{mv(fmtPct(realizedPct))}</span>
+          </div>
+          <div className="stat">
+            <span className="stat-label">Cerrada</span>
+            <span className="stat-value">{closedOn}</span>
+          </div>
+        </div>
+      ) : (
       <div className="crypto-card-stats">
         {/* Row 1 */}
         <div className="stat">
@@ -103,6 +134,7 @@ export default function CryptoCard({ entry, onClick, onReassign, onArchive, arch
           <span className={`stat-value ${pnlClass}`}>{mv(fmtPct(profitability))}</span>
         </div>
       </div>
+      )}
     </div>
   )
 }
