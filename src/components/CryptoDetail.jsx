@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef, useCallback } from 'react' // useRef used by PriceChart
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react' // useRef used by PriceChart
 import { fetchMarketChart, fetchCoinDetail } from '../services/coinGeckoApi'
-import { fmt, fmtPrice, fmtPct, fmtCompact } from '../utils/calculations'
+import { fmt, fmtPrice, fmtPct, fmtCompact, buildPortfolio } from '../utils/calculations'
 import { useApp } from '../context/AppContext'
 import { useMediaQuery } from '../utils/useMediaQuery'
 import AddTransactionModal from './modals/AddTransactionModal'
+import TransactionRow from './TransactionRow'
 
 const fmtCycleDate = (iso) =>
   new Date(iso).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -193,9 +194,10 @@ const RANGES = [
 ]
 
 const DETAIL_TTL = 24 * 60 * 60 * 1000
+const TX_PREVIEW = 8
 
 export default function CryptoDetail({ entry, onClose }) {
-  const { cgApiKey, cgMeta, saveCgMeta } = useApp()
+  const { cgApiKey, cgMeta, saveCgMeta, transactions, prices, cycles, hideValues, deleteTransaction } = useApp()
 
   const { cgId, symbol, name, currentPrice, change24h } = entry
   const thumb = cgMeta[cgId]?.thumb
@@ -215,7 +217,35 @@ export default function CryptoDetail({ entry, onClose }) {
   const [copied, setCopied]             = useState(false)
   const [retryKey, setRetryKey]         = useState(0)
   const [showHistory, setShowHistory]   = useState(false)
+  const [showAllTx, setShowAllTx]       = useState(false)
+  const [editTx, setEditTx]             = useState(null)
   const isWideChart                     = useMediaQuery('(min-width: 1000px)')
+
+  const entryKey = entry.cgId || entry.symbol
+
+  // App.jsx holds the tapped card in useState, so `entry` is a snapshot frozen
+  // at the moment the detail opened: adding or editing a transaction from this
+  // screen left "Tu posición" showing stale numbers until you navigated away and
+  // back. Re-derive it from live state instead, falling back to the prop for a
+  // coin opened from the global search that has no transactions at all.
+  const live = useMemo(() => {
+    const found = buildPortfolio(transactions, prices, cycles)
+      .find(e => (e.cgId || e.symbol) === entryKey)
+    return found || entry
+  }, [transactions, prices, cycles, entryKey, entry])
+
+  const txById = useMemo(() => new Map(transactions.map(t => [t.id, t])), [transactions])
+
+  // The main list shows the OPEN cycle only; everything already realized lives
+  // under the histórico below, so no transaction is printed twice.
+  const openTxs = useMemo(() => transactions
+    .filter(t => (t.cgId || t.symbol) === entryKey)
+    .filter(t => !(cycles.cycleByTxId.get(t.id) || {}).closed)
+    .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)),
+    [transactions, entryKey, cycles])
+
+  const shownTxs = showAllTx ? openTxs : openTxs.slice(0, TX_PREVIEW)
+  const closedCycles = live.closedCycles || []
 
   // Load chart data when range changes
   useEffect(() => {
@@ -409,67 +439,105 @@ export default function CryptoDetail({ entry, onClose }) {
         </div>
 
         {/* ── Posición cerrada: todos sus ciclos volvieron a cero ── */}
-        {entry.status === 'closed' && (
+        {live.status === 'closed' && (
           <div className="detail-section">
             <div className="detail-section-label">Posición cerrada</div>
             <div className="crypto-card-stats">
               <div className="stat">
                 <div className="stat-label">Realizado</div>
-                <div className={`stat-value ${entry.realizedPnL >= 0 ? 'pos' : 'neg'}`}>
-                  {fmt(entry.realizedPnL)}
+                <div className={`stat-value ${live.realizedPnL >= 0 ? 'pos' : 'neg'}`}>
+                  {fmt(live.realizedPnL)}
                 </div>
               </div>
               <div className="stat">
                 <div className="stat-label">Rent. realiz.</div>
-                <div className={`stat-value ${entry.realizedPnL >= 0 ? 'pos' : 'neg'}`}>
-                  {fmtPct(entry.realizedPct)}
+                <div className={`stat-value ${live.realizedPnL >= 0 ? 'pos' : 'neg'}`}>
+                  {fmtPct(live.realizedPct)}
                 </div>
               </div>
               <div className="stat">
                 <div className="stat-label">Ciclos</div>
-                <div className="stat-value">{entry.closedCycles.length}</div>
+                <div className="stat-value">{closedCycles.length}</div>
               </div>
             </div>
           </div>
         )}
 
         {/* ── Portfolio position — ocultar si no hay posición ── */}
-        {entry.amountHeld > 0 && <div className="detail-section">
+        {live.amountHeld > 0 && <div className="detail-section">
           <div className="detail-section-label">Tu posición</div>
           <div className="crypto-card-stats">
             <div className="stat">
               <div className="stat-label">Valor</div>
-              <div className="stat-value">{fmt(entry.currentValue)}</div>
+              <div className="stat-value">{fmt(live.currentValue)}</div>
             </div>
             <div className="stat">
               <div className="stat-label">Invertido</div>
-              <div className="stat-value">{fmt(entry.invested)}</div>
+              <div className="stat-value">{fmt(live.invested)}</div>
             </div>
             <div className="stat">
               <div className="stat-label">P&L</div>
-              <div className={`stat-value ${entry.profitabilityUSD >= 0 ? 'pos' : 'neg'}`}>
-                {fmt(entry.profitabilityUSD)}
+              <div className={`stat-value ${live.profitabilityUSD >= 0 ? 'pos' : 'neg'}`}>
+                {fmt(live.profitabilityUSD)}
               </div>
             </div>
             <div className="stat">
               <div className="stat-label">Rentab.</div>
-              <div className={`stat-value ${entry.profitability >= 0 ? 'pos' : 'neg'}`}>
-                {fmtPct(entry.profitability)}
+              <div className={`stat-value ${live.profitability >= 0 ? 'pos' : 'neg'}`}>
+                {fmtPct(live.profitability)}
               </div>
             </div>
             <div className="stat">
               <div className="stat-label">Cantidad</div>
-              <div className="stat-value">{entry.amountHeld.toFixed(6)}</div>
+              <div className="stat-value">{live.amountHeld.toFixed(6)}</div>
             </div>
             <div className="stat">
               <div className="stat-label">Precio medio</div>
-              <div className="stat-value">{fmtPrice(entry.avgBuy)}</div>
+              <div className="stat-value">{fmtPrice(live.avgBuy)}</div>
             </div>
           </div>
         </div>}
 
+        {/* ── Transacciones de esta moneda (ciclo abierto) ── */}
+        <div className="detail-section">
+          <div className="detail-section-label">
+            Transacciones{openTxs.length > 0 ? ` (${openTxs.length})` : ''}
+          </div>
+
+          {openTxs.length === 0 ? (
+            <div style={{ fontSize: '.82rem', color: 'var(--text-dim)' }}>
+              {closedCycles.length > 0
+                ? 'Esta posición está cerrada. Sus transacciones están en el histórico.'
+                : 'Sin transacciones en esta moneda'}
+            </div>
+          ) : (
+            <>
+              <div className="tx-list">
+                {shownTxs.map(tx => (
+                  <TransactionRow
+                    key={tx.id}
+                    tx={tx}
+                    leftLabel={tx.category}
+                    hideValues={hideValues}
+                    onClick={() => setEditTx(tx)}
+                  />
+                ))}
+              </div>
+              {openTxs.length > TX_PREVIEW && (
+                <button
+                  className="btn btn-ghost"
+                  style={{ width: '100%', justifyContent: 'center', marginTop: '8px', fontSize: '.78rem' }}
+                  onClick={() => setShowAllTx(v => !v)}
+                >
+                  {showAllTx ? 'Ver menos' : `Ver todas (${openTxs.length})`}
+                </button>
+              )}
+            </>
+          )}
+        </div>
+
         {/* ── Histórico: ciclos ya cerrados de esta moneda ── */}
-        {entry.closedCycles && entry.closedCycles.length > 0 && (
+        {closedCycles.length > 0 && (
           <div className="detail-section">
             <button
               onClick={() => setShowHistory(v => !v)}
@@ -480,12 +548,12 @@ export default function CryptoDetail({ entry, onClose }) {
               }}
             >
               <span className="detail-section-label" style={{ marginBottom: 0 }}>
-                Histórico · posiciones cerradas ({entry.closedCycles.length})
+                Histórico · posiciones cerradas ({closedCycles.length})
               </span>
               <span style={{ color: 'var(--text-dim)', fontSize: '.8rem' }}>{showHistory ? '▾' : '▸'}</span>
             </button>
 
-            {showHistory && entry.closedCycles.map(cy => (
+            {showHistory && closedCycles.map(cy => (
               <div
                 key={cy.index}
                 style={{ marginTop: '10px', padding: '10px', background: 'var(--card)', borderRadius: 'var(--radius-sm)' }}
@@ -506,6 +574,18 @@ export default function CryptoDetail({ entry, onClose }) {
                   <span>Vendido {fmt(cy.soldValue)}</span>
                   <span>Avg {fmtPrice(cy.avgBuy)}</span>
                   <span>{cy.txIds.length} tx</span>
+                </div>
+                <div className="tx-list" style={{ marginTop: '8px' }}>
+                  {cy.txIds.map(id => txById.get(id)).filter(Boolean).map(tx => (
+                    <TransactionRow
+                      key={tx.id}
+                      tx={tx}
+                      leftLabel={tx.category}
+                      hideValues={hideValues}
+                      muted
+                      onClick={() => setEditTx(tx)}
+                    />
+                  ))}
                 </div>
               </div>
             ))}
@@ -583,6 +663,14 @@ export default function CryptoDetail({ entry, onClose }) {
         <AddTransactionModal
           prefill={{ cgId: entry.cgId, cryptoId: entry.cryptoId, symbol: entry.symbol, name: entry.name }}
           onClose={() => setShowAdd(false)}
+        />
+      )}
+
+      {editTx && (
+        <AddTransactionModal
+          editTx={editTx}
+          onClose={() => setEditTx(null)}
+          onDelete={(id) => { deleteTransaction(id); setEditTx(null) }}
         />
       )}
     </div>

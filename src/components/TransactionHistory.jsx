@@ -1,27 +1,9 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { useApp } from '../context/AppContext'
-import { fmt, fmtAmount } from '../utils/calculations'
 import AddTransactionModal from './modals/AddTransactionModal'
+import TransactionRow from './TransactionRow'
 
 const PAGE = 30
-
-const iconClass = (cat) => {
-  if (cat === 'BUY') return 'tx-icon buy'
-  if (cat === 'SELL') return 'tx-icon sell'
-  return 'tx-icon custom'
-}
-
-const iconLabel = (cat) => {
-  if (cat === 'BUY') return '↑'
-  if (cat === 'SELL') return '↓'
-  if (cat === 'LIQUIDEZ') return '💵'
-  return '◆'
-}
-
-const fmtDate = (iso) => {
-  const d = new Date(iso)
-  return d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: '2-digit' })
-}
 
 export default function TransactionHistory() {
   const { transactions, allCategories, deleteTransaction, hideValues } = useApp()
@@ -59,8 +41,6 @@ export default function TransactionHistory() {
     obs.observe(el)
     return () => obs.disconnect()
   }, [filtered, observerCb])
-
-  const mv = (v) => hideValues ? '••••' : v
 
   if (transactions.length === 0) {
     return (
@@ -127,24 +107,12 @@ export default function TransactionHistory() {
         <>
           <div className="tx-list">
             {visible.map(tx => (
-              <div key={tx.id} className="tx-item" onClick={() => setEditTx(tx)}>
-                <div className={iconClass(tx.category)}>{iconLabel(tx.category)}</div>
-                <div className="tx-info">
-                  <div className="tx-main">
-                    <span className="tx-symbol">{tx.symbol}</span>
-                    <span className="tx-amount">{mv(fmt(tx.totalUSD))}</span>
-                  </div>
-                  <div className="tx-sub">
-                    <span className="tx-date">{fmtDate(tx.date)} · {tx.category}</span>
-                    <span className="tx-total">{fmtAmount(tx.amount)} @ {mv(fmt(tx.priceUSD, tx.priceUSD < 1 ? 4 : 2))}</span>
-                  </div>
-                  {tx.notes && (
-                    <div style={{ fontSize: '.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                      {tx.notes}
-                    </div>
-                  )}
-                </div>
-              </div>
+              <TransactionRow
+                key={tx.id}
+                tx={tx}
+                hideValues={hideValues}
+                onClick={() => setEditTx(tx)}
+              />
             ))}
           </div>
           {visibleCount < filtered.length && (
