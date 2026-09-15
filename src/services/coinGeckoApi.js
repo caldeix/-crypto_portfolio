@@ -14,8 +14,8 @@ const get = async (path, cgApiKey = '', timeoutMs = 12000) => {
   }
 }
 
-export const searchCG = async (query) => {
-  const json = await get(`/search?query=${encodeURIComponent(query)}`)
+export const searchCG = async (query, cgApiKey = '') => {
+  const json = await get(`/search?query=${encodeURIComponent(query)}`, cgApiKey)
   return (json.coins || []).slice(0, 20).map(c => ({
     cgId: c.id,
     symbol: c.symbol.toUpperCase(),

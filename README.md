@@ -73,7 +73,7 @@ Tu navegador
     ├── cp_archived        ← Monedas archivadas
     ├── cp_categories      ← Categorías personalizadas
     ├── cp_customBars      ← Configuración de barras en Estadísticas
-    └── cp_cgApiKey        ← API Key (cifrada en base64)
+    └── cp_cgApiKey        ← API Key (codificada en base64)
 ```
 
 ### El sistema de exportación JSON
@@ -337,7 +337,7 @@ El archivo incluye:
 - Todas tus transacciones (fecha, moneda, tipo, cantidad, precio)
 - Categorías personalizadas creadas
 - Lista de monedas archivadas
-- Opcionalmente, tu API Key de CoinGecko (cifrada)
+- Opcionalmente, tu API Key de CoinGecko (codificada en base64)
 
 **Guarda este archivo como si fuera tu cartera.** Es la única copia de tus datos.
 
@@ -379,7 +379,7 @@ Con una **API Key de CoinGecko Demo** (gratuita):
 2. Ve a *Developer Dashboard* → *API Keys*
 3. Copia la key Demo y pégala en Configuración
 
-La key se guarda **cifrada en base64** en tu localStorage. Nunca se envía a ningún servidor nuestro — va directamente a la API de CoinGecko en cada petición.
+La key se guarda **codificada en base64** en tu localStorage. Que quede claro: base64 es codificación, no cifrado — cualquiera con acceso a tu navegador puede revertirla trivialmente. Nunca se envía a ningún servidor nuestro: va directamente a la API de CoinGecko en cada petición.
 
 ### Categorías personalizadas
 

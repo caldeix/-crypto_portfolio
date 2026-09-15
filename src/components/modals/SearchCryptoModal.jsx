@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { searchCG } from '../../services/coinGeckoApi'
+import { useApp } from '../../context/AppContext'
 
 export default function SearchCryptoModal({ onSelect, onClose }) {
+  const { cgApiKey } = useApp()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(false)
@@ -12,7 +14,7 @@ export default function SearchCryptoModal({ onSelect, onClose }) {
     setLoading(true)
     setError('')
     try {
-      const data = await searchCG(query.trim())
+      const data = await searchCG(query.trim(), cgApiKey)
       setResults(data)
       if (!data.length) setError('Sin resultados.')
     } catch (e) {

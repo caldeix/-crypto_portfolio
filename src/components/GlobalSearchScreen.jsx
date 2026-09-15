@@ -3,7 +3,7 @@ import { searchCG } from '../services/coinGeckoApi'
 import { useApp } from '../context/AppContext'
 
 export default function GlobalSearchScreen({ onSelect, onClose }) {
-  const { cgMeta } = useApp()
+  const { cgMeta, cgApiKey } = useApp()
   const [query, setQuery]     = useState('')
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(false)
@@ -16,13 +16,13 @@ export default function GlobalSearchScreen({ onSelect, onClose }) {
     const t = setTimeout(async () => {
       setLoading(true)
       try {
-        const data = await searchCG(query.trim())
+        const data = await searchCG(query.trim(), cgApiKey)
         setResults(data)
       } catch {}
       finally { setLoading(false) }
     }, 350)
     return () => clearTimeout(t)
-  }, [query])
+  }, [query, cgApiKey])
 
   return (
     <div style={{
