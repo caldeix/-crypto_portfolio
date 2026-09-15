@@ -243,6 +243,9 @@ export const buildTotals = (portfolio, allTransactions = []) => {
   const realizedPnL = portfolio.reduce((s, e) => s + e.realizedPnL, 0)
   const realizedInvested = portfolio.reduce((s, e) => s + e.realizedInvested, 0)
   const closedCount = portfolio.filter(e => e.status === 'closed').length
+  // Cycles, not coins: realizedPnL aggregates every closed cycle, and a coin
+  // that was closed and re-opened contributes one without being 'closed' itself.
+  const closedCycleCount = portfolio.reduce((s, e) => s + (e.closedCycles ? e.closedCycles.length : 0), 0)
 
   // LIFETIME — open + closed. lifetimePnL must equal, to the cent, what the
   // pre-cycle code reported as totalPnL; that identity is the regression test.
@@ -254,7 +257,7 @@ export const buildTotals = (portfolio, allTransactions = []) => {
     totalInvested, totalNetInvested, totalCurrentValue, totalSold, totalPnL, totalPct, totalLiquidez,
     realizedPnL, realizedInvested,
     realizedPct: realizedInvested > 0 ? realizedPnL / realizedInvested : 0,
-    closedCount, lifetimePnL, lifetimeInvested, lifetimePct,
+    closedCount, closedCycleCount, lifetimePnL, lifetimeInvested, lifetimePct,
   }
 }
 

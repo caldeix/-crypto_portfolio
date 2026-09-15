@@ -114,7 +114,7 @@ export default function Dashboard({ onOpenDetail }) {
             <span style={{ color: 'var(--text-dim)', marginRight: '6px' }}>real</span>
             {mv(`${totals.realizedPnL >= 0 ? '+' : ''}${fmt(totals.realizedPnL)}`)}
             <span style={{ opacity: 0.75, marginLeft: '4px', color: 'var(--text-dim)' }}>
-              ({totals.closedCount} {totals.closedCount === 1 ? 'cerrada' : 'cerradas'})
+              ({totals.closedCycleCount} {totals.closedCycleCount === 1 ? 'ciclo' : 'ciclos'})
             </span>
           </div>
         )}
