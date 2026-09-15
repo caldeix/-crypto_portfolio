@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react' // useRef used by PriceChart
-import { fetchMarketChart, fetchCoinDetail } from '../services/coinGeckoApi'
+import { fetchMarketChart, fetchOHLC, fetchCoinDetail } from '../services/coinGeckoApi'
 import { fmt, fmtPrice, fmtPct, fmtCompact, buildPortfolio } from '../utils/calculations'
 import { useApp } from '../context/AppContext'
 import { useMediaQuery } from '../utils/useMediaQuery'
+import { save, load } from '../utils/storage'
 import AddTransactionModal from './modals/AddTransactionModal'
 import TransactionRow from './TransactionRow'
 
@@ -18,17 +19,46 @@ const fmtCycleDate = (iso) =>
 // in each band, and since the media query is false on every phone the narrow
 // path runs exactly the numbers it ran before.
 const CHART = {
-  narrow: { W: 300, H: 110, PAD: 4,  stroke: 1.5, dot: 3.5, font: 7.5, fontSm: 7,  boxW: 104, boxH: 36, padX: 7,  t1: 13, t2: 27, dash: '3,3' },
-  wide:   { W: 760, H: 240, PAD: 10, stroke: 1.8, dot: 4,   font: 11,  fontSm: 10, boxW: 150, boxH: 46, padX: 10, t1: 18, t2: 34, dash: '5,5' },
+  narrow: { W: 300, H: 110, PAD: 4,  stroke: 1.5, dot: 3.5, font: 7.5, fontSm: 7,  boxW: 104, boxH: 36, padX: 7,  t1: 13, t2: 27, dash: '3,3',
+            boxWc: 122, boxHc: 48, c1: 13, c2: 28, c3: 42, col2: 62 },
+  wide:   { W: 760, H: 240, PAD: 10, stroke: 1.8, dot: 4,   font: 11,  fontSm: 10, boxW: 150, boxH: 46, padX: 10, t1: 18, t2: 34, dash: '5,5',
+            boxWc: 176, boxHc: 68, c1: 19, c2: 40, c3: 59, col2: 90 },
 }
 
+// CoinGecko fixes OHLC granularity per range, so 30 days arrives as ~180
+// candles. In a 300-unit viewBox that is 1.7 units each — under two device
+// pixels on a 360px phone, which reads as mush. Group consecutive candles so no
+// range ever draws more than this: open of the first, highest high, lowest low,
+// close of the last. 1D, 7D and 3M pass through untouched; 1M collapses to
+// 12-hour candles.
+const CANDLE_TARGET = 70
+const aggregate = (rows, target = CANDLE_TARGET) => {
+  const step = Math.max(1, Math.ceil(rows.length / target))
+  if (step === 1) return rows
+  const out = []
+  for (let i = 0; i < rows.length; i += step) {
+    const g = rows.slice(i, i + step)
+    out.push([
+      g[0][0],
+      g[0][1],
+      Math.max(...g.map(r => r[2])),
+      Math.min(...g.map(r => r[3])),
+      g[g.length - 1][4],
+    ])
+  }
+  return out
+}
+
+const noCurrency = (v) => fmtPrice(v).replace('$', '')
+
 // ── SVG Price Chart ──────────────────────────────────────────────────────────
-function PriceChart({ data, cgId, variant = 'narrow' }) {
+function PriceChart({ data, cgId, variant = 'narrow', mode = 'line' }) {
   const svgRef = useRef(null)
   const [hover, setHover] = useState(null) // { x, price, ts }
 
   const C = CHART[variant] || CHART.narrow
   const { W, H, PAD } = C
+  const candles = mode === 'candles'
 
   // Every hook has to run before the early return further down. This component
   // used to call useRef/useState, return early when it had no data, and only
@@ -39,12 +69,20 @@ function PriceChart({ data, cgId, variant = 'narrow' }) {
   // previous render".
   const ready = Array.isArray(data) && data.length >= 2
 
-  const prices = ready ? data.map(d => d[1]) : []
+  const prices = ready && !candles ? data.map(d => d[1]) : []
   const times  = ready ? data.map(d => d[0]) : []
-  const minP   = ready ? Math.min(...prices) : 0
-  const maxP   = ready ? Math.max(...prices) : 0
+  // The candle domain has to come from highs and lows, not closes, or the wicks
+  // would be clipped at the top and bottom of the plot.
+  const minP   = ready ? (candles ? Math.min(...data.map(d => d[3])) : Math.min(...prices)) : 0
+  const maxP   = ready ? (candles ? Math.max(...data.map(d => d[2])) : Math.max(...prices)) : 0
   const pRange = maxP - minP
   const tRange = ready ? times[times.length - 1] - times[0] : 0
+
+  const n     = ready ? data.length : 0
+  const plotW = W - PAD * 2
+  const slot  = candles && n > 0 ? plotW / n : 0
+  const bodyW = Math.max(0.8, slot * 0.62)   // floor so a dense range still draws
+  const cx    = (i) => PAD + slot * (i + 0.5)
 
   // Edge case: all same price → flat line in center
   const toX = (ts) => tRange > 0 ? PAD + ((ts - times[0]) / tRange) * (W - PAD * 2) : W / 2
@@ -52,17 +90,22 @@ function PriceChart({ data, cgId, variant = 'narrow' }) {
     ? PAD + ((maxP - p) / pRange) * (H - PAD * 2)
     : H / 2
 
-  const pts = data.map(([ts, p]) => `${toX(ts).toFixed(2)},${toY(p).toFixed(2)}`)
+  // Guarded on `ready`: these used to sit after an early return, but the return
+  // had to move below the hooks, so they now run on every render — including the
+  // one where data is still null.
+  const line = ready && !candles
+  const pts = line ? data.map(([ts, p]) => `${toX(ts).toFixed(2)},${toY(p).toFixed(2)}`) : []
   const polyline = pts.join(' ')
 
-  const isUp = prices[prices.length - 1] >= prices[0]
+  const isUp = line ? prices[prices.length - 1] >= prices[0] : true
   const color = isUp ? 'var(--success)' : 'var(--danger)'
   const gradId = `grad-${cgId}`
 
   // Area path: polyline + close down at bottom
-  const firstX = toX(times[0]).toFixed(2)
-  const lastX  = toX(times[times.length - 1]).toFixed(2)
-  const areaPath = `M${firstX},${H} ` + pts.map((pt, i) => (i === 0 ? `L${pt}` : `L${pt}`)).join(' ') + ` L${lastX},${H} Z`
+  const areaPath = line
+    ? `M${toX(times[0]).toFixed(2)},${H} ` + pts.map(pt => `L${pt}`).join(' ') +
+      ` L${toX(times[times.length - 1]).toFixed(2)},${H} Z`
+    : ''
 
   // Pointer logic (shared for mouse and touch)
   const getHoverFromClientX = useCallback((clientX) => {
@@ -70,6 +113,16 @@ function PriceChart({ data, cgId, variant = 'narrow' }) {
     if (!svg || !ready) return
     const rect = svg.getBoundingClientRect()
     const relX = ((clientX - rect.left) / rect.width) * W
+
+    if (candles) {
+      // Candles sit on a regular grid, so hit-testing is a division rather than
+      // a scan over every point.
+      const i = Math.min(n - 1, Math.max(0, Math.floor((relX - PAD) / slot)))
+      const [ts, o, h, l, c] = data[i]
+      setHover({ x: cx(i), y: toY(c), ts, o, h, l, c, price: c })
+      return
+    }
+
     // Find closest data point by x
     let closest = 0
     let minDist = Infinity
@@ -79,7 +132,7 @@ function PriceChart({ data, cgId, variant = 'narrow' }) {
     })
     const [ts, price] = data[closest]
     setHover({ x: toX(ts), y: toY(price), price, ts })
-  }, [data, ready, W, H, PAD]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [data, ready, W, H, PAD, candles, n, slot]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleMouseMove = (e) => getHoverFromClientX(e.clientX)
   const handleMouseLeave = () => setHover(null)
@@ -89,6 +142,30 @@ function PriceChart({ data, cgId, variant = 'narrow' }) {
     if (e.touches.length > 0) getHoverFromClientX(e.touches[0].clientX)
   }
   const handleTouchEnd = () => setHover(null)
+
+  const candleEls = useMemo(() => {
+    if (!ready || !candles) return null
+    return data.map(([ts, o, h, l, c], i) => {
+      const col   = c >= o ? 'var(--success)' : 'var(--danger)'
+      const x     = cx(i)
+      const yTop  = toY(Math.max(o, c))
+      // Floor the body so a doji renders as a hairline instead of vanishing.
+      const bodyH = Math.max(0.6, Math.abs(toY(o) - toY(c)))
+      return (
+        <g key={`${ts}-${i}`}>
+          {/* Wicks are hairlines whose user-unit width would otherwise be
+              multiplied by the viewBox scale, so they are pinned. */}
+          <line
+            x1={x} y1={toY(h)} x2={x} y2={toY(l)}
+            stroke={col}
+            strokeWidth={Math.max(0.35, bodyW * 0.18)}
+            vectorEffect="non-scaling-stroke"
+          />
+          <rect x={x - bodyW / 2} y={yTop} width={bodyW} height={bodyH} fill={col} />
+        </g>
+      )
+    })
+  }, [data, ready, candles, W, H, PAD, slot, bodyW, minP, maxP]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Safe to return early now: every hook above has already run.
   if (!ready) {
@@ -116,34 +193,52 @@ function PriceChart({ data, cgId, variant = 'narrow' }) {
         </linearGradient>
       </defs>
 
-      {/* Gradient area */}
-      <path d={areaPath} fill={`url(#${gradId})`} />
+      {candles ? candleEls : (
+        <>
+          {/* Gradient area */}
+          <path d={areaPath} fill={`url(#${gradId})`} />
 
-      {/* Line */}
-      <polyline
-        points={polyline}
-        fill="none"
-        stroke={color}
-        strokeWidth={C.stroke}
-        strokeLinejoin="round"
-        strokeLinecap="round"
-      />
+          {/* Line */}
+          <polyline
+            points={polyline}
+            fill="none"
+            stroke={color}
+            strokeWidth={C.stroke}
+            strokeLinejoin="round"
+            strokeLinecap="round"
+          />
+        </>
+      )}
 
       {/* Hover overlay */}
       {hover && (
         <>
+          {/* Slot highlight — each candle has its own colour, so the crosshair
+              is neutral here rather than tinted like the line series. */}
+          {candles && (
+            <rect
+              x={hover.x - slot / 2} y={PAD}
+              width={slot} height={H - PAD * 2}
+              fill="var(--text)" opacity="0.06"
+            />
+          )}
           {/* Vertical dashed line */}
           <line
             x1={hover.x} y1={PAD}
             x2={hover.x} y2={H - PAD}
-            stroke={color}
+            stroke={candles ? 'var(--text-muted)' : color}
             strokeWidth={C.stroke * 0.67}
             strokeDasharray={C.dash}
             opacity="0.7"
+            vectorEffect={candles ? 'non-scaling-stroke' : undefined}
           />
-          {/* Dot */}
-          <circle cx={hover.x} cy={hover.y} r={C.dot} fill={color} />
-          <circle cx={hover.x} cy={hover.y} r={C.dot * 1.7} fill={color} opacity="0.2" />
+          {/* Dot — line mode only; a candle is already its own marker */}
+          {!candles && (
+            <>
+              <circle cx={hover.x} cy={hover.y} r={C.dot} fill={color} />
+              <circle cx={hover.x} cy={hover.y} r={C.dot * 1.7} fill={color} opacity="0.2" />
+            </>
+          )}
 
           {/* Tooltip box */}
           {(() => {
@@ -151,9 +246,10 @@ function PriceChart({ data, cgId, variant = 'narrow' }) {
               month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
             })
             const priceStr = fmtPrice(hover.price)
-            const boxW = C.boxW
-            const boxH = C.boxH
+            const boxW = candles ? C.boxWc : C.boxW
+            const boxH = candles ? C.boxHc : C.boxH
             const margin = PAD + 2
+            const upC = candles && hover.c >= hover.o
             // Position tooltip: prefer right of dot, flip if near edge
             let bx = hover.x + margin
             if (bx + boxW > W - PAD) bx = hover.x - margin - boxW
@@ -170,12 +266,34 @@ function PriceChart({ data, cgId, variant = 'narrow' }) {
                   stroke="var(--border)"
                   strokeWidth={C.stroke * 0.53}
                 />
-                <text x={bx + C.padX} y={by + C.t1} fontSize={C.font} fill={color} fontWeight="700">
-                  {priceStr}
-                </text>
-                <text x={bx + C.padX} y={by + C.t2} fontSize={C.fontSm} fill="var(--text-muted)">
-                  {dateStr}
-                </text>
+                {candles ? (
+                  <>
+                    <text x={bx + C.padX} y={by + C.c1} fontSize={C.fontSm} fill="var(--text-muted)">
+                      {dateStr}
+                    </text>
+                    <text x={bx + C.padX} y={by + C.c2} fontSize={C.fontSm} fill="var(--text-dim)">
+                      O <tspan fill="var(--text)">{noCurrency(hover.o)}</tspan>
+                    </text>
+                    <text x={bx + C.col2} y={by + C.c2} fontSize={C.fontSm} fill="var(--text-dim)">
+                      H <tspan fill="var(--text)">{noCurrency(hover.h)}</tspan>
+                    </text>
+                    <text x={bx + C.padX} y={by + C.c3} fontSize={C.fontSm} fill="var(--text-dim)">
+                      L <tspan fill="var(--text)">{noCurrency(hover.l)}</tspan>
+                    </text>
+                    <text x={bx + C.col2} y={by + C.c3} fontSize={C.fontSm} fill="var(--text-dim)">
+                      C <tspan fill={upC ? 'var(--success)' : 'var(--danger)'} fontWeight="700">{noCurrency(hover.c)}</tspan>
+                    </text>
+                  </>
+                ) : (
+                  <>
+                    <text x={bx + C.padX} y={by + C.t1} fontSize={C.font} fill={color} fontWeight="700">
+                      {priceStr}
+                    </text>
+                    <text x={bx + C.padX} y={by + C.t2} fontSize={C.fontSm} fill="var(--text-muted)">
+                      {dateStr}
+                    </text>
+                  </>
+                )}
               </g>
             )
           })()}
@@ -219,6 +337,11 @@ export default function CryptoDetail({ entry, onClose }) {
   const [showHistory, setShowHistory]   = useState(false)
   const [showAllTx, setShowAllTx]       = useState(false)
   const [editTx, setEditTx]             = useState(null)
+  // Pure UI preference, so it lives in storage directly rather than in
+  // AppContext: it is the same category as hideValues, not portfolio data.
+  const [chartType, setChartType]       = useState(() => load('chartType', 'line'))
+  const [candleFail, setCandleFail]     = useState(null) // "cgId|range" that had no OHLC
+  const chartCacheRef                   = useRef(new Map())
   const isWideChart                     = useMediaQuery('(min-width: 1000px)')
 
   const entryKey = entry.cgId || entry.symbol
@@ -247,16 +370,52 @@ export default function CryptoDetail({ entry, onClose }) {
   const shownTxs = showAllTx ? openTxs : openTxs.slice(0, TX_PREVIEW)
   const closedCycles = live.closedCycles || []
 
-  // Load chart data when range changes
+  useEffect(() => { save('chartType', chartType) }, [chartType])
+
+  // Load chart data when the coin, range or chart type changes
   useEffect(() => {
     if (!cgId) return
+    let cancelled = false
+    const key = `${cgId}|${range}|${chartType}`
+
+    // Flipping the toggle back and forth must not spend another request against
+    // the free tier's 30/min.
+    const cached = chartCacheRef.current.get(key)
+    if (cached) { setChartData(cached); setLoadingChart(false); return }
+
     setLoadingChart(true)
     setChartData(null)
-    fetchMarketChart(cgId, range, cgApiKey)
-      .then(prices => setChartData(prices))
-      .catch(() => setChartData([]))
-      .finally(() => setLoadingChart(false))
-  }, [cgId, range, cgApiKey])
+
+    const req = chartType === 'candles'
+      ? fetchOHLC(cgId, range, cgApiKey).then(rows => aggregate(rows))
+      : fetchMarketChart(cgId, range, cgApiKey)
+
+    req
+      .then(rows => {
+        if (cancelled) return
+        chartCacheRef.current.set(key, rows)
+        setChartData(rows)
+      })
+      .catch(() => {
+        if (cancelled) return
+        if (chartType === 'candles') {
+          // 404 = this coin has no OHLC series, 429 = rate limited, abort =
+          // timeout. Fall back to the line instead of an empty frame. No auto
+          // retry: fetchCoinDetail already spends a retry on this screen.
+          setCandleFail(`${cgId}|${range}`)
+          // Leave an empty series behind, not null: changing chartType re-runs
+          // this effect, and the render in between must not hand PriceChart a
+          // null to map over.
+          setChartData([])
+          setChartType('line')
+        } else {
+          setChartData([])
+        }
+      })
+      .finally(() => { if (!cancelled) setLoadingChart(false) })
+
+    return () => { cancelled = true }
+  }, [cgId, range, cgApiKey, chartType])
 
   // Fetch coin detail only when cache is missing or stale (>24h); retryKey forces a re-fetch
   useEffect(() => {
@@ -362,15 +521,41 @@ export default function CryptoDetail({ entry, onClose }) {
                 {r.label}
               </button>
             ))}
+            {/* One icon rather than two labelled pills: at 360px the row has
+                296px of usable width and the four range pills already take
+                ~202px. */}
+            <button
+              className="tab"
+              style={{ marginLeft: 'auto', padding: '4px 10px', fontSize: '.78rem', flexShrink: 0 }}
+              title={chartType === 'line' ? 'Ver velas japonesas' : 'Ver línea'}
+              aria-label={chartType === 'line' ? 'Ver velas japonesas' : 'Ver línea'}
+              onClick={() => {
+                setCandleFail(null)
+                setChartType(t => (t === 'line' ? 'candles' : 'line'))
+              }}
+            >
+              {chartType === 'line' ? '📊' : '📈'}
+            </button>
           </div>
 
           <div className="chart-box">
             {loadingChart ? (
               <div className="chart-loading">Cargando gráfica…</div>
             ) : (
-              <PriceChart data={chartData} cgId={cgId} variant={isWideChart ? 'wide' : 'narrow'} />
+              <PriceChart
+                data={chartData}
+                cgId={cgId}
+                variant={isWideChart ? 'wide' : 'narrow'}
+                mode={chartType}
+              />
             )}
           </div>
+
+          {chartType === 'line' && candleFail === `${cgId}|${range}` && (
+            <div style={{ fontSize: '.72rem', color: 'var(--text-dim)', marginTop: '6px' }}>
+              Velas no disponibles para este rango — mostrando línea
+            </div>
+          )}
         </div>
 
         {/* ── Market data grid ── */}

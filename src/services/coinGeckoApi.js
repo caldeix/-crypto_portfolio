@@ -33,6 +33,15 @@ export const fetchMarketChart = async (cgId, days, cgApiKey = '') => {
   return json.prices // [[timestamp, price], ...]
 }
 
+// Candlestick series. Valid `days` on the public and demo plans are
+// 1, 7, 14, 30, 90, 180 and 365 — the four ranges the chart offers are all in
+// that set. Granularity is chosen by CoinGecko and is not selectable for free:
+// 30 minutes for 1 day, 4 hours for 3-30 days, 4 days beyond that.
+export const fetchOHLC = async (cgId, days, cgApiKey = '') => {
+  const json = await get(`/coins/${cgId}/ohlc?vs_currency=usd&days=${days}`, cgApiKey)
+  return Array.isArray(json) ? json : [] // [[ts, open, high, low, close], ...]
+}
+
 export const fetchCoinDetail = async (cgId, cgApiKey = '') => {
   const json = await get(
     `/coins/${cgId}?localization=false&tickers=false&market_data=true&community_data=false&developer_data=false`,
