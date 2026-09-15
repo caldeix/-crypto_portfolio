@@ -129,7 +129,7 @@ export default function CryptoCard({ entry, onClick, onReassign, onArchive, arch
           </span>
         </div>
         {/* Row 4 — Rent col3 only */}
-        <div className="stat" style={{ gridColumn: 3 }}>
+        <div className="stat stat-rent">
           <span className="stat-label">Rent.</span>
           <span className={`stat-value ${pnlClass}`}>{mv(fmtPct(profitability))}</span>
         </div>

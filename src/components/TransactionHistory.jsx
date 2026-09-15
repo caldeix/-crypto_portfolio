@@ -91,7 +91,7 @@ export default function TransactionHistory() {
       </div>
 
       {/* Symbol filter — collapsible */}
-      <div style={{ marginBottom: '10px' }}>
+      <div className="tx-filter-symbol" style={{ marginBottom: '10px' }}>
         <button
           className="btn btn-ghost"
           style={{ width: '100%', justifyContent: 'space-between', fontSize: '.82rem' }}
