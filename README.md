@@ -4,6 +4,7 @@
 
 **Seguimiento profesional de tu cartera de criptomonedas — sin servidores, sin registro, sin ceder tus datos.**
 
+![Version](https://img.shields.io/badge/version-4.0.0-D4AF37)
 ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)
 ![Vite](https://img.shields.io/badge/Vite-6-646CFF?logo=vite&logoColor=white)
 ![JavaScript](https://img.shields.io/badge/JavaScript-ES2024-F7DF1E?logo=javascript&logoColor=black)

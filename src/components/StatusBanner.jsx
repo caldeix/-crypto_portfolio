@@ -26,6 +26,18 @@ export default function StatusBanner() {
           }
         </span>
       </div>
+      <a
+        className="status-credit"
+        href="https://caldeix.github.io/me"
+        target="_blank"
+        rel="noopener noreferrer"
+        title="Desarrollado por caldeix"
+      >
+        <span className="status-credit-by">desarrollado por </span>
+        <strong>caldeix</strong>
+        <span className="status-credit-dash">—</span>
+        <span>v{__APP_VERSION__}</span>
+      </a>
       <button
         className="btn-icon"
         onClick={refreshPrices}

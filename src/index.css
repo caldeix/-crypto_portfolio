@@ -151,7 +151,25 @@ label { font-size: .8rem; color: var(--text-muted); display: block; margin-botto
 .status-dot.loading { background: var(--warning); animation: pulse 1s infinite; }
 .status-dot.error   { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
-.status-left { display: flex; align-items: center; gap: 8px; }
+.status-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.status-left .status-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Credit + version, tucked against the refresh button */
+.status-credit {
+  margin-left: auto;
+  display: flex; align-items: center; gap: 4px;
+  flex-shrink: 0;
+  font-size: .62rem;
+  color: var(--text-dim);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color .15s;
+}
+.status-credit:hover { color: var(--text-muted); }
+.status-credit strong { color: var(--primary); font-weight: 600; }
+.status-credit-dash { opacity: .5; }
+/* Shown at every width: the timestamp next to it truncates with an ellipsis if
+   the banner ever runs short, so the credit never has to be sacrificed. */
 
 /* ── Bottom Nav ── */
 .bottom-nav {
@@ -584,6 +602,15 @@ label { font-size: .8rem; color: var(--text-muted); display: block; margin-botto
   .crypto-card .crypto-card-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .crypto-card .stat-rent         { grid-column: auto; }
 
+  /* The header is flex with space-between; without min-width:0 the name block
+     cannot shrink and overruns the price. Truncating beats overlapping. Scoped
+     here because on a phone the card is wide enough for the full name. */
+  .crypto-card .crypto-card-symbol       { min-width: 0; }
+  .crypto-card .crypto-card-symbol > div { min-width: 0; }
+  .crypto-card .crypto-card-symbol-text,
+  .crypto-card .crypto-card-name         { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .crypto-card .crypto-card-value        { flex-shrink: 0; }
+
   /* Stop the search pill from swallowing every spare pixel */
   .sort-bar .global-search-row { flex: 0 0 240px; margin-left: auto; }
 
@@ -604,9 +631,11 @@ label { font-size: .8rem; color: var(--text-muted); display: block; margin-botto
   :root { --chart-max: 760px; --chart-ar: 760 / 240; }
 }
 
-/* ── Desktop → 6 columns ── */
+/* ── Desktop → 5 columns ──
+   Six left the card at ~226px, where a long name like "Artificial Liquid
+   Intelligence" ran into the price in the header. Five give it ~300px. */
 @media (min-width: 1400px) {
-  :root { --grid-cols: 6; --content-max: 1560px; }
+  :root { --grid-cols: 5; --content-max: 1560px; }
 }
 
 /* ── Very wide desktop ── */
