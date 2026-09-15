@@ -2,34 +2,48 @@ import { useState, useEffect, useRef, useCallback } from 'react' // useRef used 
 import { fetchMarketChart, fetchCoinDetail } from '../services/coinGeckoApi'
 import { fmt, fmtPrice, fmtPct, fmtCompact } from '../utils/calculations'
 import { useApp } from '../context/AppContext'
+import { useMediaQuery } from '../utils/useMediaQuery'
 import AddTransactionModal from './modals/AddTransactionModal'
 
 const fmtCycleDate = (iso) =>
   new Date(iso).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })
 
+// Two fixed geometries rather than one that stretches. The SVG has no height,
+// so a 300x110 viewBox at 1368px wide renders 1368x501 and multiplies every user
+// unit by 4.56 — a 1.5 stroke becomes 6.8px and 7.5 text becomes 34px. Capping
+// with max-height cannot fix it: the default preserveAspectRatio letterboxes the
+// drawing instead of shrinking it, and "none" distorts text and strokes
+// non-uniformly. A second set of constants keeps roughly 1 user unit = 1 CSS px
+// in each band, and since the media query is false on every phone the narrow
+// path runs exactly the numbers it ran before.
+const CHART = {
+  narrow: { W: 300, H: 110, PAD: 4,  stroke: 1.5, dot: 3.5, font: 7.5, fontSm: 7,  boxW: 104, boxH: 36, padX: 7,  t1: 13, t2: 27, dash: '3,3' },
+  wide:   { W: 760, H: 240, PAD: 10, stroke: 1.8, dot: 4,   font: 11,  fontSm: 10, boxW: 150, boxH: 46, padX: 10, t1: 18, t2: 34, dash: '5,5' },
+}
+
 // ── SVG Price Chart ──────────────────────────────────────────────────────────
-function PriceChart({ data, cgId }) {
+function PriceChart({ data, cgId, variant = 'narrow' }) {
   const svgRef = useRef(null)
   const [hover, setHover] = useState(null) // { x, price, ts }
 
-  const W = 300
-  const H = 110
-  const PAD = 4
+  const C = CHART[variant] || CHART.narrow
+  const { W, H, PAD } = C
 
-  if (!data || data.length < 2) {
-    return (
-      <div className="chart-loading" style={{ height: H }}>
-        {data && data.length === 1 ? 'Un solo punto de datos' : 'Sin datos'}
-      </div>
-    )
-  }
+  // Every hook has to run before the early return further down. This component
+  // used to call useRef/useState, return early when it had no data, and only
+  // then call useCallback. It got away with it because the parent unmounts it on
+  // every range change, but the moment the same MOUNTED instance flips between
+  // having data and not — which a line/candles toggle does — React compares hook
+  // counts across renders and throws "Rendered more hooks than during the
+  // previous render".
+  const ready = Array.isArray(data) && data.length >= 2
 
-  const prices = data.map(d => d[1])
-  const times  = data.map(d => d[0])
-  const minP   = Math.min(...prices)
-  const maxP   = Math.max(...prices)
+  const prices = ready ? data.map(d => d[1]) : []
+  const times  = ready ? data.map(d => d[0]) : []
+  const minP   = ready ? Math.min(...prices) : 0
+  const maxP   = ready ? Math.max(...prices) : 0
   const pRange = maxP - minP
-  const tRange = times[times.length - 1] - times[0]
+  const tRange = ready ? times[times.length - 1] - times[0] : 0
 
   // Edge case: all same price → flat line in center
   const toX = (ts) => tRange > 0 ? PAD + ((ts - times[0]) / tRange) * (W - PAD * 2) : W / 2
@@ -52,7 +66,7 @@ function PriceChart({ data, cgId }) {
   // Pointer logic (shared for mouse and touch)
   const getHoverFromClientX = useCallback((clientX) => {
     const svg = svgRef.current
-    if (!svg) return
+    if (!svg || !ready) return
     const rect = svg.getBoundingClientRect()
     const relX = ((clientX - rect.left) / rect.width) * W
     // Find closest data point by x
@@ -64,7 +78,7 @@ function PriceChart({ data, cgId }) {
     })
     const [ts, price] = data[closest]
     setHover({ x: toX(ts), y: toY(price), price, ts })
-  }, [data]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [data, ready, W, H, PAD]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleMouseMove = (e) => getHoverFromClientX(e.clientX)
   const handleMouseLeave = () => setHover(null)
@@ -74,6 +88,15 @@ function PriceChart({ data, cgId }) {
     if (e.touches.length > 0) getHoverFromClientX(e.touches[0].clientX)
   }
   const handleTouchEnd = () => setHover(null)
+
+  // Safe to return early now: every hook above has already run.
+  if (!ready) {
+    return (
+      <div className="chart-loading">
+        {data && data.length === 1 ? 'Un solo punto de datos' : 'Sin datos'}
+      </div>
+    )
+  }
 
   return (
     <svg
@@ -100,7 +123,7 @@ function PriceChart({ data, cgId }) {
         points={polyline}
         fill="none"
         stroke={color}
-        strokeWidth="1.5"
+        strokeWidth={C.stroke}
         strokeLinejoin="round"
         strokeLinecap="round"
       />
@@ -113,13 +136,13 @@ function PriceChart({ data, cgId }) {
             x1={hover.x} y1={PAD}
             x2={hover.x} y2={H - PAD}
             stroke={color}
-            strokeWidth="1"
-            strokeDasharray="3,3"
+            strokeWidth={C.stroke * 0.67}
+            strokeDasharray={C.dash}
             opacity="0.7"
           />
           {/* Dot */}
-          <circle cx={hover.x} cy={hover.y} r="3.5" fill={color} />
-          <circle cx={hover.x} cy={hover.y} r="6" fill={color} opacity="0.2" />
+          <circle cx={hover.x} cy={hover.y} r={C.dot} fill={color} />
+          <circle cx={hover.x} cy={hover.y} r={C.dot * 1.7} fill={color} opacity="0.2" />
 
           {/* Tooltip box */}
           {(() => {
@@ -127,9 +150,9 @@ function PriceChart({ data, cgId }) {
               month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
             })
             const priceStr = fmtPrice(hover.price)
-            const boxW = 104
-            const boxH = 36
-            const margin = 6
+            const boxW = C.boxW
+            const boxH = C.boxH
+            const margin = PAD + 2
             // Position tooltip: prefer right of dot, flip if near edge
             let bx = hover.x + margin
             if (bx + boxW > W - PAD) bx = hover.x - margin - boxW
@@ -141,15 +164,15 @@ function PriceChart({ data, cgId }) {
               <g>
                 <rect
                   x={bx} y={by} width={boxW} height={boxH}
-                  rx="5" ry="5"
+                  rx={C.PAD + 1} ry={C.PAD + 1}
                   fill="var(--surface)"
                   stroke="var(--border)"
-                  strokeWidth="0.8"
+                  strokeWidth={C.stroke * 0.53}
                 />
-                <text x={bx + 7} y={by + 13} fontSize="7.5" fill={color} fontWeight="700">
+                <text x={bx + C.padX} y={by + C.t1} fontSize={C.font} fill={color} fontWeight="700">
                   {priceStr}
                 </text>
-                <text x={bx + 7} y={by + 27} fontSize="7" fill="var(--text-muted)">
+                <text x={bx + C.padX} y={by + C.t2} fontSize={C.fontSm} fill="var(--text-muted)">
                   {dateStr}
                 </text>
               </g>
@@ -192,6 +215,7 @@ export default function CryptoDetail({ entry, onClose }) {
   const [copied, setCopied]             = useState(false)
   const [retryKey, setRetryKey]         = useState(0)
   const [showHistory, setShowHistory]   = useState(false)
+  const isWideChart                     = useMediaQuery('(min-width: 1000px)')
 
   // Load chart data when range changes
   useEffect(() => {
@@ -310,11 +334,13 @@ export default function CryptoDetail({ entry, onClose }) {
             ))}
           </div>
 
-          {loadingChart ? (
-            <div className="chart-loading">Cargando gráfica…</div>
-          ) : (
-            <PriceChart data={chartData} cgId={cgId} />
-          )}
+          <div className="chart-box">
+            {loadingChart ? (
+              <div className="chart-loading">Cargando gráfica…</div>
+            ) : (
+              <PriceChart data={chartData} cgId={cgId} variant={isWideChart ? 'wide' : 'narrow'} />
+            )}
+          </div>
         </div>
 
         {/* ── Market data grid ── */}

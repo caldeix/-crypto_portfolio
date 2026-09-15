@@ -26,6 +26,8 @@
   --grid-cols:   1;       /* .crypto-grid columns            */
   --bar-max:     100%;    /* centred width of the fixed bars */
   --detail-max:  100%;    /* CryptoDetail reading column     */
+  --chart-max:   100%;    /* price chart box                 */
+  --chart-ar:    300 / 110;
   --shadow:      0 4px 24px rgba(0,0,0,.5);
   --glow-gold:   0 0 16px rgba(212,175,55,.35);
   --glow-purple: 0 0 16px rgba(138,43,226,.35);
@@ -508,8 +510,13 @@ label { font-size: .8rem; color: var(--text-muted); display: block; margin-botto
   border-top: 1px solid var(--border);
 }
 .chart-range-tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+.chart-box { width: 100%; max-width: var(--chart-max); }
+/* Tied to the chart's own ratio instead of a fixed height, so the placeholder is
+   always exactly the size of the chart that replaces it — the fixed 110px used
+   to leave a gap on a phone and a 390px hole on a desktop. */
 .chart-loading {
-  height: 110px; display: flex; align-items: center;
+  aspect-ratio: var(--chart-ar);
+  display: flex; align-items: center;
   justify-content: center; color: var(--text-dim); font-size: .82rem;
 }
 .desc-text {
@@ -591,6 +598,10 @@ label { font-size: .8rem; color: var(--text-muted); display: block; margin-botto
      Padding rather than max-width keeps the section separators full-bleed. */
   .detail-header  { padding-inline: max(16px, calc((100% - var(--detail-max)) / 2)); }
   .detail-section { padding-inline: max(16px, calc((100% - var(--detail-max)) / 2)); }
+
+  /* Matches CHART.wide in CryptoDetail: inside a 760px box one user unit is
+     about one CSS pixel, so strokes and labels render at their nominal size. */
+  :root { --chart-max: 760px; --chart-ar: 760 / 240; }
 }
 
 /* ── Desktop → 6 columns ── */
