@@ -5,6 +5,28 @@ import { genId } from '../utils/calculations'
 
 const Ctx = createContext(null)
 
+// Bumped to 4 when customBars and a pruned cgMeta joined the export payload.
+// Files older than this are still imported: missing keys mean "keep what this
+// device already has" (see importData).
+const DATA_VERSION = 4
+
+// Only the small, stable fields of cgMeta are worth syncing between devices.
+// cachedDetail holds a whole coin description plus a market snapshot per coin
+// (hundreds of KB over ~40 coins) and would ship stale prices that the
+// receiving device keeps showing until the 24h TTL expires.
+const pruneCgMeta = (cgMeta) => {
+  const out = {}
+  for (const [id, m] of Object.entries(cgMeta || {})) {
+    if (!m) continue
+    const kept = {}
+    if (m.thumb)           kept.thumb           = m.thumb
+    if (m.homepage)        kept.homepage        = m.homepage
+    if (m.contractAddress) kept.contractAddress = m.contractAddress
+    if (Object.keys(kept).length) out[id] = kept
+  }
+  return out
+}
+
 const initialState = {
   cgApiKeyEncoded: load('cgApiKey', ''),
   customCategories: load('categories', []),
@@ -32,13 +54,29 @@ function reducer(state, action) {
     case 'SET_PRICES':      return { ...state, prices: { ...state.prices, ...action.payload }, lastUpdated: Date.now(), isLoading: false, priceError: null }
     case 'LOADING':         return { ...state, isLoading: true, priceError: null }
     case 'PRICE_ERROR':     return { ...state, isLoading: false, priceError: action.payload }
-    case 'SET_CG_META':     return { ...state, cgMeta: { ...state.cgMeta, ...action.payload } }
+    case 'SET_CG_META': {
+      // Merge per coin, not per map. The payload from fetchPricesByCgId only
+      // carries { thumb }, so a top-level spread replaced each coin's whole
+      // entry and wiped homepage, contractAddress, cachedDetail and
+      // detailFetchedAt on every price refresh — destroying the 24h detail
+      // cache minutes after it was written.
+      const merged = { ...state.cgMeta }
+      for (const [cgId, meta] of Object.entries(action.payload)) {
+        merged[cgId] = { ...merged[cgId], ...meta }
+      }
+      return { ...state, cgMeta: merged }
+    }
     case 'MERGE_CG_META': {
       const { cgId, meta } = action.payload
       return { ...state, cgMeta: { ...state.cgMeta, [cgId]: { ...state.cgMeta[cgId], ...meta } } }
     }
     case 'SET_CUSTOM_BARS': return { ...state, customBars: action.payload }
-    case 'IMPORT':          return { ...state, ...action.payload, prices: {}, archivedSymbols: action.payload.archivedSymbols || [], cgMeta: action.payload.cgMeta || state.cgMeta }
+    case 'IMPORT':          return {
+      ...state, ...action.payload, prices: {},
+      archivedSymbols: Array.isArray(action.payload.archivedSymbols) ? action.payload.archivedSymbols : [],
+      customBars:      Array.isArray(action.payload.customBars)      ? action.payload.customBars      : state.customBars,
+      cgMeta:          action.payload.cgMeta || state.cgMeta,
+    }
     default:                return state
   }
 }
@@ -181,22 +219,63 @@ export function AppProvider({ children }) {
   }
 
   const exportData = (includeKey = false) => {
-    const data = { version: 3, exportedAt: new Date().toISOString(), transactions: state.transactions, customCategories: state.customCategories, archivedSymbols: state.archivedSymbols }
+    const data = {
+      version: DATA_VERSION,
+      exportedAt: new Date().toISOString(),
+      transactions: state.transactions,
+      customCategories: state.customCategories,
+      archivedSymbols: state.archivedSymbols,
+      customBars: state.customBars,
+      cgMeta: pruneCgMeta(state.cgMeta),
+    }
     if (includeKey && state.cgApiKeyEncoded) data.cgApiKeyEncoded = state.cgApiKeyEncoded
     return data
   }
 
   const importData = (data) => {
     if (!data?.transactions) throw new Error('Formato inválido')
+
+    const warnings = []
+    if (typeof data.version === 'number' && data.version > DATA_VERSION) {
+      warnings.push('El archivo viene de una versión más nueva de la app. Puede que se ignoren datos que este dispositivo aún no entiende.')
+    }
+
+    // An absent key means "keep whatever this device already has". A v3 file
+    // carries no customBars, and the bars are hand-built with no undo, so
+    // wiping them would be unrecoverable. Array.isArray rather than a
+    // truthiness check is deliberate: an explicit [] from a newer file means
+    // the other device deleted its bars, and that deletion must sync.
+    const customBars = Array.isArray(data.customBars) ? data.customBars : state.customBars
+
+    // cgMeta merges per coin instead of replacing, so thumbnails this device
+    // already fetched survive an import from a device that had fewer of them.
+    const incomingMeta = data.cgMeta && typeof data.cgMeta === 'object' ? data.cgMeta : null
+    const cgMeta = incomingMeta
+      ? Object.keys(incomingMeta).reduce(
+          (acc, id) => { acc[id] = { ...state.cgMeta[id], ...incomingMeta[id] }; return acc },
+          { ...state.cgMeta },
+        )
+      : state.cgMeta
+
     dispatch({
       type: 'IMPORT',
       payload: {
         transactions: data.transactions || [],
         customCategories: data.customCategories || [],
         archivedSymbols: data.archivedSymbols || [],
+        customBars,
+        cgMeta,
         cgApiKeyEncoded: data.cgApiKeyEncoded || state.cgApiKeyEncoded,
       },
     })
+
+    return {
+      version:  typeof data.version === 'number' ? data.version : null,
+      txCount:  (data.transactions || []).length,
+      barCount: Array.isArray(data.customBars) ? data.customBars.length : null,
+      metaCount: incomingMeta ? Object.keys(incomingMeta).length : 0,
+      warnings,
+    }
   }
 
   return (

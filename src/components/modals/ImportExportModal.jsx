@@ -4,7 +4,7 @@ import { useApp } from '../../context/AppContext'
 export default function ImportExportModal({ onClose }) {
   const { exportData, importData } = useApp()
   const [includeKey, setIncludeKey] = useState(false)
-  const [imported, setImported] = useState(false)
+  const [summary, setSummary] = useState(null)
   const [error, setError] = useState('')
   const fileRef = useRef()
 
@@ -27,10 +27,11 @@ export default function ImportExportModal({ onClose }) {
     reader.onload = (ev) => {
       try {
         const data = JSON.parse(ev.target.result)
-        importData(data)
-        setImported(true)
-      } catch {
-        setError('Archivo inválido. Asegúrate de que es un JSON de portafolio exportado desde esta app.')
+        setSummary(importData(data))
+      } catch (err) {
+        setError(err?.message === 'Formato inválido'
+          ? 'El archivo no contiene transacciones. ¿Seguro que es un export de esta app?'
+          : 'Archivo inválido. Asegúrate de que es un JSON de portafolio exportado desde esta app.')
       }
     }
     reader.readAsText(file)
@@ -44,10 +45,21 @@ export default function ImportExportModal({ onClose }) {
           <button className="btn-icon" onClick={onClose}>✕</button>
         </div>
 
-        {imported ? (
-          <div style={{ textAlign: 'center', padding: '24px', color: 'var(--success)' }}>
-            ✓ Datos importados correctamente
-            <br /><br />
+        {summary ? (
+          <div style={{ textAlign: 'center', padding: '24px' }}>
+            <div style={{ color: 'var(--success)', marginBottom: '10px' }}>✓ Datos importados correctamente</div>
+            <div style={{ fontSize: '.82rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+              {summary.txCount} transacciones
+              {summary.barCount !== null
+                ? ` · ${summary.barCount} barra${summary.barCount === 1 ? '' : 's'} personalizada${summary.barCount === 1 ? '' : 's'}`
+                : ' · el archivo no traía barras, se conservan las de este dispositivo'}
+              {summary.metaCount > 0 && ` · ${summary.metaCount} logos`}
+              {summary.version !== null && ` · v${summary.version}`}
+            </div>
+            {summary.warnings.map((w, i) => (
+              <div key={i} className="api-warning" style={{ fontSize: '.78rem', marginTop: '10px', textAlign: 'left' }}>⚠️ {w}</div>
+            ))}
+            <br />
             <button className="btn btn-primary" onClick={onClose}>Cerrar</button>
           </div>
         ) : (
